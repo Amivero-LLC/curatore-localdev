@@ -14,12 +14,11 @@ Development guidance for Claude Code working across the Curatore platform.
 
 ```
 curatore-localdev/
-├── curatore-backend/           # FastAPI + Celery + Redis + PostgreSQL
+├── curatore-backend/           # FastAPI + Celery + Redis + PostgreSQL + MinIO
 ├── curatore-frontend/          # Next.js 15 + React 19 + Tailwind
 ├── curatore-document-service/  # Document extraction (PDF, DOCX, etc.)
 ├── curatore-playwright-service/# Browser rendering for web scraping
 ├── curatore-mcp-service/       # AI tool gateway (MCP protocol)
-├── curatore-minio-service/     # S3-compatible object storage
 └── scripts/                    # dev-up.sh, dev-down.sh, dev-logs.sh
 ```
 
@@ -146,7 +145,7 @@ Each sub-repo has its own `CLAUDE.md` with service-specific guidance. Below is a
 - `backend/app/config.py` — Pydantic settings (reads `.env`)
 - `config.yml` — Application configuration (LLM, search, services)
 - `.env` — Secrets and infrastructure config
-- `docker-compose.yml` — Backend + Worker + Beat + Redis + Postgres
+- `docker-compose.yml` — Backend + Worker + Beat + Redis + MinIO + Postgres
 
 **Startup sequence:**
 1. Validate `config.yml` (fail-fast)
@@ -193,12 +192,6 @@ Each sub-repo has its own `CLAUDE.md` with service-specific guidance. Below is a
 **Tech:** FastAPI (Python 3.12)
 
 **Purpose:** MCP (Model Context Protocol) gateway for Claude Desktop, Open WebUI, and other AI clients. Proxies tool calls to the backend API.
-
-### curatore-minio-service
-
-**Tech:** MinIO (S3-compatible object storage)
-
-**Purpose:** Stores uploaded files, extracted markdown, and temporary artifacts.
 
 ---
 

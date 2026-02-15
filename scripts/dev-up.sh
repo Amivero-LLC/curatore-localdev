@@ -51,14 +51,8 @@ echo "1. Creating shared Docker network..."
 docker network create curatore-network 2>/dev/null && echo "   Created curatore-network" || echo "   curatore-network already exists"
 echo ""
 
-# ---- 2. Start infrastructure (MinIO) ----
-echo "2. Starting MinIO (object storage)..."
-cd "${ROOT}/curatore-minio-service"
-docker compose up -d
-echo ""
-
-# ---- 3. Start backend + Redis (+ optional Postgres, Docling) ----
-echo "3. Starting Backend (API + Worker + Beat + Redis)..."
+# ---- 2. Start backend + Redis + MinIO (+ optional Postgres, Docling) ----
+echo "2. Starting Backend (API + Worker + Beat + Redis + MinIO)..."
 cd "${ROOT}/curatore-backend"
 
 PROFILES=""
@@ -74,32 +68,32 @@ fi
 docker compose ${PROFILES} up -d --build
 echo ""
 
-# ---- 4. Start Document Service ----
-echo "4. Starting Document Service..."
+# ---- 3. Start Document Service ----
+echo "3. Starting Document Service..."
 cd "${ROOT}/curatore-document-service"
 docker compose up -d
 echo ""
 
-# ---- 5. Start Playwright Service ----
-echo "5. Starting Playwright Service..."
+# ---- 4. Start Playwright Service ----
+echo "4. Starting Playwright Service..."
 cd "${ROOT}/curatore-playwright-service"
 docker compose up -d
 echo ""
 
-# ---- 6. Start Frontend ----
-echo "6. Starting Frontend..."
+# ---- 5. Start Frontend ----
+echo "5. Starting Frontend..."
 cd "${ROOT}/curatore-frontend"
 docker compose up -d
 echo ""
 
-# ---- 7. Start MCP Gateway ----
-echo "7. Starting MCP Gateway..."
+# ---- 6. Start MCP Gateway ----
+echo "6. Starting MCP Gateway..."
 cd "${ROOT}/curatore-mcp-service"
 docker compose up -d
 echo ""
 
-# ---- 8. Initialize storage buckets ----
-echo "8. Initializing storage buckets..."
+# ---- 7. Initialize storage buckets ----
+echo "7. Initializing storage buckets..."
 sleep 5  # Wait for backend to start
 "${ROOT}/curatore-backend/scripts/init_storage.sh" 2>/dev/null || {
   echo "   Storage init deferred — backend may still be starting."

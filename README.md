@@ -6,12 +6,11 @@ Master repository for running the full Curatore platform locally. Each service l
 
 ```
 curatore-localdev/
-├── curatore-backend/           # FastAPI API + Celery workers + Redis + PostgreSQL
+├── curatore-backend/           # FastAPI API + Celery workers + Redis + MinIO + PostgreSQL
 ├── curatore-frontend/          # Next.js 15 web application
 ├── curatore-document-service/  # Document extraction microservice
 ├── curatore-playwright-service/# Browser rendering microservice
 ├── curatore-mcp-service/       # AI tool gateway (MCP protocol)
-├── curatore-minio-service/     # S3-compatible object storage
 └── scripts/                    # Orchestration scripts
 ```
 
@@ -37,7 +36,8 @@ git submodule update --init --recursive
 ```bash
 # Backend (required)
 cp curatore-backend/.env.example curatore-backend/.env
-# Edit curatore-backend/.env with your API keys (at minimum: OPENAI_API_KEY)
+cp curatore-backend/config.yml.example curatore-backend/config.yml
+# Edit .env and config.yml with your API keys (at minimum: OPENAI_API_KEY)
 ```
 
 ### 3. Start everything
@@ -49,12 +49,11 @@ cp curatore-backend/.env.example curatore-backend/.env
 This starts all services in dependency order:
 
 1. Docker network (`curatore-network`)
-2. MinIO (object storage)
-3. Backend + Redis + PostgreSQL + Celery workers
-4. Document Service
-5. Playwright Service
-6. Frontend
-7. MCP Gateway
+2. Backend + Redis + MinIO + PostgreSQL + Celery workers
+3. Document Service
+4. Playwright Service
+5. Frontend
+6. MCP Gateway
 
 ### 4. Seed the database (first time only)
 
@@ -111,7 +110,6 @@ Default login: `admin@example.com` / `changeme`
 | Document Service | [curatore-document-service](https://github.com/Amivero-LLC/curatore-document-service) |
 | Playwright Service | [curatore-playwright-service](https://github.com/Amivero-LLC/curatore-playwright-service) |
 | MCP Gateway | [curatore-mcp-service](https://github.com/Amivero-LLC/curatore-mcp-service) |
-| MinIO Service | [curatore-minio-service](https://github.com/Amivero-LLC/curatore-minio-service) |
 
 ## Working with Submodules
 

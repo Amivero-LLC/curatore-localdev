@@ -18,6 +18,3 @@
 	path = curatore-mcp-service
 	url = https://github.com/Amivero-LLC/curatore-mcp-service.git
 
-[submodule "curatore-minio-service"]
-	path = curatore-minio-service
-	url = https://github.com/Amivero-LLC/curatore-minio-service.git

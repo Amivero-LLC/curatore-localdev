@@ -10,7 +10,7 @@ ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 echo "Stopping all Curatore services..."
 echo ""
 
-for svc in curatore-mcp-service curatore-frontend curatore-playwright-service curatore-document-service curatore-backend curatore-minio-service; do
+for svc in curatore-mcp-service curatore-frontend curatore-playwright-service curatore-document-service curatore-backend; do
   dir="${ROOT}/${svc}"
   if [[ -f "${dir}/docker-compose.yml" ]]; then
     echo "  Stopping ${svc}..."
