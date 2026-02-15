@@ -1,0 +1,23 @@
+[submodule "curatore-backend"]
+	path = curatore-backend
+	url = https://github.com/Amivero-LLC/curatore-backend.git
+
+[submodule "curatore-frontend"]
+	path = curatore-frontend
+	url = https://github.com/Amivero-LLC/curatore-frontend.git
+
+[submodule "curatore-document-service"]
+	path = curatore-document-service
+	url = https://github.com/Amivero-LLC/curatore-document-service.git
+
+[submodule "curatore-playwright-service"]
+	path = curatore-playwright-service
+	url = https://github.com/Amivero-LLC/curatore-playwright-service.git
+
+[submodule "curatore-mcp-service"]
+	path = curatore-mcp-service
+	url = https://github.com/Amivero-LLC/curatore-mcp-service.git
+
+[submodule "curatore-minio-service"]
+	path = curatore-minio-service
+	url = https://github.com/Amivero-LLC/curatore-minio-service.git
