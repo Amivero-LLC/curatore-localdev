@@ -29,45 +29,38 @@ llm:
 
   task_types:
     embedding:
-      model: text-embedding-3-large
-      dimensions: 1536
+      model: __LLM_EMBEDDING_MODEL__
+      dimensions: __LLM_EMBEDDING_DIMENSIONS__
 
     quick:
-      model: __OPENAI_MODEL__
-      temperature: 0.1
+      model: __LLM_QUICK_MODEL__
+      temperature: __LLM_QUICK_TEMPERATURE__
 
     standard:
-      model: __OPENAI_MODEL__
-      temperature: 0.5
+      model: __LLM_STANDARD_MODEL__
+      temperature: __LLM_STANDARD_TEMPERATURE__
 
     quality:
-      model: __OPENAI_MODEL__
-      temperature: 0.3
+      model: __LLM_QUALITY_MODEL__
+      temperature: __LLM_QUALITY_TEMPERATURE__
 
     bulk:
-      model: __OPENAI_MODEL__
-      temperature: 0.3
+      model: __LLM_BULK_MODEL__
+      temperature: __LLM_BULK_TEMPERATURE__
 
     reasoning:
-      model: __OPENAI_MODEL__
-      temperature: 0.2
+      model: __LLM_REASONING_MODEL__
+      temperature: __LLM_REASONING_TEMPERATURE__
 
 # ============================================================================
 # Extraction Engine Configuration
 # ============================================================================
 extraction:
-  default_engine: document-service
-
-  engines:
-    - name: document-service
-      display_name: "Document Service (Docker)"
-      description: "Curatore Document Service running on curatore-network"
-      engine_type: document-service
-      service_url: http://document-service:8010
-      timeout: 240
-      enabled: true
-      verify_ssl: true
-      api_key: __DOCUMENT_SERVICE_API_KEY__
+  enabled: true
+  service_url: http://document-service:8010
+  api_key: __DOCUMENT_SERVICE_API_KEY__
+  timeout: 240
+  verify_ssl: true
 
 # ============================================================================
 # Playwright Rendering Service Configuration
@@ -78,19 +71,6 @@ playwright:
   api_key: __PLAYWRIGHT_API_KEY__
   timeout: 60
   max_retries: 3
-  browser_pool_size: 3
-  default_viewport_width: 1920
-  default_viewport_height: 1080
-  default_timeout_ms: 30000
-  default_wait_timeout_ms: 5000
-  document_extensions:
-    - ".pdf"
-    - ".docx"
-    - ".doc"
-    - ".xlsx"
-    - ".xls"
-    - ".pptx"
-    - ".ppt"
 
 # ============================================================================
 # MCP Gateway Service Configuration
@@ -140,10 +120,6 @@ minio:
   access_key: __MINIO_ACCESS_KEY__
   secret_key: __MINIO_SECRET_KEY__
   secure: false
-  bucket_uploads: curatore-uploads
-  bucket_processed: curatore-processed
-  bucket_temp: curatore-temp
-  presigned_expiry: 3600
 
 # ============================================================================
 # Search Configuration (PostgreSQL + pgvector)
