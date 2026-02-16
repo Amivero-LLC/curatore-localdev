@@ -7,4 +7,10 @@ Thumbs.db
 .idea/
 *.swp
 
+# Environment — root .env contains secrets, never commit
+.env
+
 # Environment files are in sub-repos (git-ignored there)
+
+# Quality check logs and reports
+logs/

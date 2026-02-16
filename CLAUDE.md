@@ -2,6 +2,21 @@
 
 Orchestration repo for running the full Curatore platform locally. Contains no application code — each service is a Git submodule.
 
+## Getting Started
+
+```bash
+git clone --recurse-submodules https://github.com/Amivero-LLC/curatore-localdev.git
+cd curatore-localdev
+./scripts/bootstrap.sh
+```
+
+The bootstrap script prompts for API keys, generates configs, starts all services, and seeds the admin user. See [`.env.example`](.env.example) for all configurable variables.
+
+To regenerate service configs after editing `.env`:
+```bash
+./scripts/generate-env.sh
+```
+
 ## Key Commands
 
 ```bash
@@ -11,6 +26,9 @@ Orchestration repo for running the full Curatore platform locally. Contains no a
 ./scripts/dev-logs.sh worker           # Worker logs
 ./scripts/dev-logs.sh all              # All logs
 ./scripts/dev-status.sh               # Service status
+./scripts/dev-check.sh                 # Full quality check (lint + security + tests)
+./scripts/dev-check.sh --lint-only     # Linting only
+./scripts/dev-check.sh --service=backend  # Single service only
 docker exec curatore-backend python -m app.core.commands.seed --create-admin  # Seed admin
 docker exec curatore-backend alembic upgrade head  # Run migrations
 ```
@@ -24,7 +42,7 @@ curatore-localdev/
 ├── curatore-document-service/  # Document extraction (PDF, DOCX, etc.)
 ├── curatore-playwright-service/# Browser rendering for web scraping
 ├── curatore-mcp-service/       # AI tool gateway (MCP protocol)
-└── scripts/                    # dev-up.sh, dev-down.sh, dev-logs.sh
+└── scripts/                    # dev-up.sh, dev-down.sh, dev-logs.sh, dev-check.sh
 ```
 
 ### Network Topology
