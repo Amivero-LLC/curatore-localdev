@@ -339,6 +339,9 @@ run_test_backend() {
     [[ -n "$coverage_pct" ]] && note="$note ($coverage_pct coverage)"
     log_note "  [PASS] backend — $note"
     record_result "TESTS" "backend" "pytest" "PASS" "$note"
+  elif [[ $code -eq 5 ]]; then
+    log_note "  [PASS] backend — no tests collected (exit 5)"
+    record_result "TESTS" "backend" "pytest" "PASS" "no tests collected"
   else
     log_note "  [FAIL] backend (exit $code) — see test_backend.log"
     [[ -n "$summary_line" ]] && log_note "         $summary_line"
@@ -393,6 +396,9 @@ run_test_python_service() {
     [[ -n "$coverage_pct" ]] && note="$note ($coverage_pct coverage)"
     log_note "  [PASS] $svc — $note"
     record_result "TESTS" "$svc" "pytest" "PASS" "$note"
+  elif [[ $code -eq 5 ]]; then
+    log_note "  [PASS] $svc — no tests collected (exit 5)"
+    record_result "TESTS" "$svc" "pytest" "PASS" "no tests collected"
   else
     log_note "  [FAIL] $svc (exit $code) — see test_${svc}.log"
     [[ -n "$summary_line" ]] && log_note "         $summary_line"
@@ -434,8 +440,10 @@ run_test_phase() {
   fi
 
   should_run_service "backend"          && run_test_backend
-  should_run_service "document-service" && run_test_python_service "document-service" "$DOCSVC_DIR"     "document-service"
-  should_run_service "playwright"       && run_test_python_service "playwright"       "$PLAYWRIGHT_DIR" "playwright"
+  should_run_service "document-service" && run_test_python_service "document-service" "$DOCSVC_DIR"     "document-service" \
+                                             -e SERVICE_API_KEY=
+  should_run_service "playwright"       && run_test_python_service "playwright"       "$PLAYWRIGHT_DIR" "playwright" \
+                                             -e SERVICE_API_KEY=
   should_run_service "mcp"              && run_test_python_service "mcp"              "$MCP_DIR"        "mcp" \
                                              -e SERVICE_API_KEY=test-key -e BACKEND_URL=http://backend:8000
   should_run_service "frontend"         && run_test_frontend

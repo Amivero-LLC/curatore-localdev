@@ -166,9 +166,19 @@ MS_CLIENT_SECRET=${MS_CLIENT_SECRET}
 # SAM.gov
 SAM_API_KEY=${SAM_API_KEY}
 
-# MinIO
+# Celery (Docker container names — must match redis service)
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/1
+
+# Service Auth (delegated auth from MCP service)
+TRUSTED_SERVICE_KEY=${MCP_API_KEY}
+
+# MinIO (Docker container names — must match minio service)
+MINIO_ENDPOINT=minio:9000
 MINIO_ROOT_USER=${MINIO_ROOT_USER}
 MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
 
 # Email
 EMAIL_BACKEND=${EMAIL_BACKEND}

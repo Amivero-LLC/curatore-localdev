@@ -1,157 +1,96 @@
 # Curatore Local Development
 
-Master repository for running the full Curatore platform locally. Each service lives in its own repository and is registered as a Git submodule.
+Orchestration repo for running the full Curatore platform locally. Contains no application code — each service is a Git submodule.
+
+## Prerequisites
+
+- **Docker Desktop** (with Docker Compose v2)
+- **Git** (with submodule support)
+- **API Keys** — at minimum an LLM API key (OpenAI or LiteLLM proxy). SharePoint and SAM.gov keys are optional but enable full functionality.
+
+## Quick Start
+
+```bash
+# 1. Clone with submodules
+git clone --recurse-submodules https://github.com/Amivero-LLC/curatore-localdev.git
+cd curatore-localdev
+
+# 2. Run bootstrap (interactive — prompts for API keys, starts everything)
+./scripts/bootstrap.sh
+```
+
+Bootstrap does everything automatically:
+
+1. Initializes Git submodules
+2. Creates `.env` from `.env.example` and prompts for required API keys
+3. Auto-generates secrets (JWT key, service API keys, database passwords)
+4. Distributes config to each service via `generate-env.sh`
+5. Starts all Docker services
+6. Seeds the admin user
+
+When it finishes, you'll see URLs and login credentials.
+
+### Default login
+
+- **URL:** http://localhost:3000
+- **Email:** `admin@example.com`
+- **Password:** `changeme`
+
+## Manual Setup
+
+If you prefer step-by-step control:
+
+```bash
+# 1. Clone and init submodules
+git clone --recurse-submodules https://github.com/Amivero-LLC/curatore-localdev.git
+cd curatore-localdev
+
+# 2. Create root .env and fill in your values (see "Environment Variables" below)
+cp .env.example .env
+# Edit .env with your API keys
+
+# 3. Generate per-service configs from root .env
+./scripts/generate-env.sh
+
+# 4. Start all services
+./scripts/dev-up.sh --with-postgres
+
+# 5. Seed admin user (after backend is healthy)
+docker exec curatore-backend python -m app.core.commands.seed --create-admin
+```
 
 ## Architecture
 
 ```
 curatore-localdev/
-├── curatore-backend/           # FastAPI API + Celery workers + Redis + MinIO + PostgreSQL
-├── curatore-frontend/          # Next.js 15 web application
-├── curatore-document-service/  # Document extraction microservice
-├── curatore-playwright-service/# Browser rendering microservice
+├── curatore-backend/           # FastAPI + Celery + Redis + PostgreSQL + MinIO
+├── curatore-frontend/          # Next.js 15 + React 19 + Tailwind
+├── curatore-document-service/  # Document extraction (PDF, DOCX, etc.)
+├── curatore-playwright-service/# Browser rendering for web scraping
 ├── curatore-mcp-service/       # AI tool gateway (MCP protocol)
-└── scripts/                    # Orchestration scripts
+├── scripts/                    # Bootstrap, start/stop, config generation
+└── docs/                       # Cross-cutting platform documentation
 ```
 
-All services communicate over a shared Docker network (`curatore-network`).
+All services share a `curatore-network` Docker network and discover each other by container name.
 
-## Prerequisites
+### Service Map
 
-- **Docker** and **Docker Compose** (v2+)
-- **Git** with submodule support
-- An **OpenAI API key** (or compatible LLM endpoint)
+| Service | Container | Local URL | Internal URL |
+|---------|-----------|-----------|--------------|
+| Frontend | `curatore-frontend` | http://localhost:3000 | http://frontend:3000 |
+| Backend API | `curatore-backend` | http://localhost:8000 | http://backend:8000 |
+| API Docs (Swagger) | — | http://localhost:8000/docs | — |
+| Document Service | `curatore-document-service` | http://localhost:8010 | http://document-service:8010 |
+| Playwright | `curatore-playwright` | http://localhost:8011 | http://playwright:8011 |
+| MCP Gateway | `curatore-mcp` | http://localhost:8020 | http://mcp:8020 |
+| MinIO Console | `curatore-minio` | http://localhost:9001 | minio:9000 |
+| PostgreSQL | `curatore-postgres` | localhost:5432 | postgres:5432 |
+| Redis | `curatore-redis` | localhost:6379 | redis:6379 |
 
-## Quick Start
+**Local URLs** are for your browser. **Internal URLs** are how services talk to each other inside Docker.
 
-### 1. Clone with submodules
-
-```bash
-git clone --recurse-submodules https://github.com/Amivero-LLC/curatore-localdev.git
-cd curatore-localdev
-```
-
-If you already cloned without `--recurse-submodules`:
-
-```bash
-git submodule update --init --recursive
-```
-
-### 2. Configure secrets
-
-```bash
-# Backend (required)
-cp curatore-backend/.env.example curatore-backend/.env
-cp curatore-backend/config.yml.example curatore-backend/config.yml
-# Edit .env and config.yml with your API keys (at minimum: OPENAI_API_KEY)
-```
-
-**Two files, distinct responsibilities:**
-- **`.env`** — Infrastructure & secrets: credentials, database URLs, MinIO keys
-- **`config.yml`** — Application behavior: LLM models/routing, service discovery, search tuning
-
-### 3. Start everything
-
-```bash
-./scripts/dev-up.sh --with-postgres
-```
-
-This starts all services in dependency order:
-
-1. Docker network (`curatore-network`)
-2. Backend infrastructure (Redis, MinIO, PostgreSQL) with health verification
-3. Backend API + Celery workers (waits for Redis + MinIO healthy)
-4. Celery Beat scheduler (waits for backend healthy)
-5. Document Service
-6. Playwright Service
-7. Frontend
-8. MCP Gateway
-9. Storage bucket initialization (waits for backend readiness probe)
-
-On **first run**, the backend automatically:
-- Detects the fresh database (no Alembic version table)
-- Creates all tables and SQL views
-- Seeds reference data (roles)
-- Creates the system org, default org, and default data sources
-- Stamps Alembic to head
-
-### 4. Create admin user (first time only)
-
-```bash
-docker exec curatore-backend python -m app.core.commands.seed --create-admin
-```
-
-### 5. Open the app
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:8000 |
-| API Docs (Swagger) | http://localhost:8000/docs |
-| MinIO Console | http://localhost:9001 |
-| Document Service | http://localhost:8010 |
-| Playwright Service | http://localhost:8011 |
-| MCP Gateway | http://localhost:8020 |
-
-Default login: `admin@example.com` / `changeme`
-
-## Startup Hardening
-
-The platform uses multiple layers to ensure reliable startup:
-
-**Docker healthchecks** — Each infrastructure service has a healthcheck, and `depends_on` conditions enforce ordering:
-
-| Container | Healthcheck | Depends On |
-|-----------|------------|-----------|
-| `curatore-redis` | `redis-cli ping` | — |
-| `curatore-minio` | MinIO `/health/live` | — |
-| `curatore-postgres` | `pg_isready` | — |
-| `curatore-backend` | `/api/v1/admin/system/health/ready` | Redis (healthy), MinIO (healthy) |
-| `curatore-worker` | `celery inspect ping` | Redis (healthy) |
-| `curatore-beat` | — | Redis (healthy), Backend (healthy) |
-
-**Pre-start checks** (`prestart.py`) — Before the backend accepts requests:
-1. Waits for PostgreSQL (30 retries x 2s), Redis (15 x 2s), MinIO (15 x 2s)
-2. Detects fresh install vs. existing database
-3. Runs schema setup (fresh: `create_all` + stamp; existing: `alembic upgrade head`)
-4. Auto-seeds baseline data on fresh install
-5. `mark_startup_complete()` gates the readiness probe
-
-**Storage initialization** — `dev-up.sh` polls the backend readiness endpoint (up to 5 minutes) before running `init_storage.sh`, ensuring MinIO buckets are created reliably.
-
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `./scripts/dev-up.sh` | Start all services |
-| `./scripts/dev-up.sh --with-postgres` | Start with PostgreSQL |
-| `./scripts/dev-up.sh --with-docling` | Start with Docling extraction engine |
-| `./scripts/dev-up.sh --all` | Start with all optional services |
-| `./scripts/dev-down.sh` | Stop all services |
-| `./scripts/dev-logs.sh` | View backend logs |
-| `./scripts/dev-logs.sh [service]` | View specific service logs |
-| `./scripts/dev-status.sh` | Show running service status |
-
-## Health Checks
-
-```bash
-# Liveness (zero I/O, always 200)
-curl http://localhost:8000/api/v1/admin/system/health/live
-
-# Readiness (checks DB + Redis + MinIO + startup complete)
-curl http://localhost:8000/api/v1/admin/system/health/ready
-
-# Comprehensive (all components, basic status)
-curl http://localhost:8000/api/v1/admin/system/health/comprehensive
-
-# Comprehensive with full diagnostics (requires auth)
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8000/api/v1/admin/system/health/comprehensive
-```
-
-All health endpoints are public (no auth required for basic status). Authenticated requests get full diagnostics.
-
-## Port Map
+### Port Map
 
 | Port | Service |
 |------|---------|
@@ -165,15 +104,174 @@ All health endpoints are public (no auth required for basic status). Authenticat
 | 9000 | MinIO S3 API |
 | 9001 | MinIO Console |
 
-## Service Repositories
+## Environment Variables
 
-| Service | Repository |
-|---------|-----------|
-| Backend | [curatore-backend](https://github.com/Amivero-LLC/curatore-backend) |
-| Frontend | [curatore-frontend](https://github.com/Amivero-LLC/curatore-frontend) |
-| Document Service | [curatore-document-service](https://github.com/Amivero-LLC/curatore-document-service) |
-| Playwright Service | [curatore-playwright-service](https://github.com/Amivero-LLC/curatore-playwright-service) |
-| MCP Gateway | [curatore-mcp-service](https://github.com/Amivero-LLC/curatore-mcp-service) |
+All configuration starts in the **root `.env`** file. This is the single source of truth.
+
+After editing `.env`, run `./scripts/generate-env.sh` to propagate changes to each service. See [`.env.example`](.env.example) for inline documentation on every variable.
+
+### How Config Flows
+
+```
+ Root .env  ──→  generate-env.sh  ──→  curatore-backend/.env
+                                  ──→  curatore-backend/config.yml
+                                  ──→  curatore-frontend/.env
+                                  ──→  curatore-document-service/.env
+                                  ──→  curatore-playwright-service/.env
+                                  ──→  curatore-mcp-service/.env
+```
+
+**Never edit per-service `.env` files directly** — they are regenerated from the root `.env`.
+
+### Config Philosophy
+
+| File | Purpose | Examples |
+|------|---------|----------|
+| **`.env`** | Secrets, credentials, infrastructure, dev toggles | API keys, DB passwords, `DEBUG`, `ENABLE_AUTH` |
+| **`config.yml`** | Application behavior, LLM routing, search tuning | Model per task type, chunk sizes, queue settings |
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for the full reference.
+
+### Required Variables
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | LLM API key (OpenAI, LiteLLM proxy, or any OpenAI-compatible provider) |
+| `OPENAI_BASE_URL` | LLM API endpoint URL |
+| `OPENAI_MODEL` | Default model for all AI tasks (overridable per task type in `config.yml`) |
+
+These enable full functionality but can be left blank to start without their features:
+
+| Variable | Description |
+|----------|-------------|
+| `MS_TENANT_ID` | Azure AD tenant ID for SharePoint integration |
+| `MS_CLIENT_ID` | Azure app registration client ID |
+| `MS_CLIENT_SECRET` | Azure app registration client secret |
+| `SAM_API_KEY` | SAM.gov API key for government opportunities |
+
+### Auto-Generated Secrets
+
+Created by `bootstrap.sh` if left blank. Set manually for deterministic environments (CI, staging).
+
+| Variable | Description |
+|----------|-------------|
+| `JWT_SECRET_KEY` | Signs authentication tokens. Changing it invalidates all sessions. |
+| `MCP_API_KEY` | Shared secret between MCP gateway and backend. Also used as `TRUSTED_SERVICE_KEY` for delegated auth. |
+| `DOCUMENT_SERVICE_API_KEY` | Authenticates backend requests to the document extraction service |
+| `PLAYWRIGHT_API_KEY` | Authenticates backend requests to the browser rendering service |
+| `MINIO_ROOT_USER` | MinIO admin username (default: `admin`) |
+| `MINIO_ROOT_PASSWORD` | MinIO admin password |
+| `POSTGRES_PASSWORD` | PostgreSQL password |
+
+### Optional Overrides
+
+Defaults work for local development. See [`.env.example`](.env.example) for full descriptions.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEBUG` | `true` | Verbose logging across all services |
+| `LOG_LEVEL` | `INFO` | Python log level (DEBUG, INFO, WARNING, ERROR) |
+| `ENABLE_AUTH` | `true` | Set `false` to bypass JWT auth (local dev only) |
+| `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed browser origins (JSON array) |
+| `ADMIN_EMAIL` | `admin@example.com` | Seeded admin user email |
+| `ADMIN_PASSWORD` | `changeme` | Seeded admin user password |
+| `ADMIN_USERNAME` | `admin` | Seeded admin username |
+| `ADMIN_FULL_NAME` | `Admin User` | Seeded admin display name |
+| `DEFAULT_ORG_NAME` | `Default Organization` | Default organization name |
+| `DEFAULT_ORG_SLUG` | `default` | Default organization URL slug |
+| `POSTGRES_DB` | `curatore` | PostgreSQL database name |
+| `POSTGRES_USER` | `curatore` | PostgreSQL username |
+| `ENABLE_POSTGRES_SERVICE` | `true` | Include local PostgreSQL container |
+| `EMAIL_BACKEND` | `console` | `console` logs emails, `smtp` sends them |
+| `EMAIL_FROM_ADDRESS` | `noreply@curatore.app` | Sender email address |
+| `EMAIL_FROM_NAME` | `Curatore` | Sender display name |
+| `SEARCH_ENABLED` | `true` | Enable hybrid full-text + semantic search |
+
+### Docker-Only Variables (set automatically)
+
+These are set by `generate-env.sh` or `docker-compose.yml` and don't need to be in the root `.env`:
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `DATABASE_URL` | `postgresql+asyncpg://...@postgres:5432/curatore` | Derived from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` |
+| `CELERY_BROKER_URL` | `redis://redis:6379/0` | Celery task broker (Redis DB 0) |
+| `CELERY_RESULT_BACKEND` | `redis://redis:6379/1` | Celery result store (Redis DB 1) |
+| `TRUSTED_SERVICE_KEY` | Same as `MCP_API_KEY` | Delegated auth from MCP service |
+| `MINIO_ENDPOINT` | `minio:9000` | MinIO Docker container address |
+| `MINIO_ACCESS_KEY` | Same as `MINIO_ROOT_USER` | MinIO access credential |
+| `MINIO_SECRET_KEY` | Same as `MINIO_ROOT_PASSWORD` | MinIO secret credential |
+| `DOCUMENT_SERVICE_URL` | `http://document-service:8010` | Docker container name |
+| `PLAYWRIGHT_SERVICE_URL` | `http://playwright:8011` | Docker container name |
+| `DOCUMENT_SERVICE_VERIFY_SSL` | `false` | No SSL between Docker containers |
+
+## Scripts Reference
+
+| Script | Purpose |
+|--------|---------|
+| `./scripts/bootstrap.sh` | One-command setup from fresh clone to running platform |
+| `./scripts/bootstrap.sh --skip-start` | Configure only, don't start services |
+| `./scripts/generate-env.sh` | Regenerate service configs after editing root `.env` |
+| `./scripts/generate-env.sh --check` | Validate root `.env` has all required fields |
+| `./scripts/dev-up.sh --with-postgres` | Start all services (includes local PostgreSQL) |
+| `./scripts/dev-up.sh --all` | Start everything including optional services (Docling) |
+| `./scripts/dev-up.sh --with-docling` | Start with optional Docling extraction engine |
+| `./scripts/dev-down.sh` | Stop all services |
+| `./scripts/dev-logs.sh` | Backend logs |
+| `./scripts/dev-logs.sh worker` | Celery worker logs |
+| `./scripts/dev-logs.sh all` | All service logs |
+| `./scripts/dev-status.sh` | Service health status |
+| `./scripts/dev-check.sh` | Full quality check (lint + security + tests) |
+| `./scripts/dev-check.sh --lint-only` | Linting only |
+| `./scripts/dev-check.sh --test-only` | Tests only |
+| `./scripts/dev-check.sh --security-only` | Security scanning only |
+| `./scripts/dev-check.sh --service=backend` | Single service only |
+
+## Common Tasks
+
+### Run database migrations
+
+```bash
+docker exec curatore-backend alembic upgrade head
+```
+
+### Create a new migration
+
+```bash
+docker exec curatore-backend alembic revision --autogenerate -m "description"
+```
+
+### Re-seed admin user
+
+```bash
+docker exec curatore-backend python -m app.core.commands.seed --create-admin
+```
+
+### View worker queue health
+
+```bash
+docker exec curatore-worker celery -A app.celery_app inspect active
+```
+
+### Run quality checks
+
+```bash
+./scripts/dev-check.sh                       # Everything
+./scripts/dev-check.sh --test-only           # Tests only
+./scripts/dev-check.sh --service=backend     # Single service
+```
+
+### Health checks
+
+```bash
+# Liveness (zero I/O, always 200)
+curl http://localhost:8000/api/v1/admin/system/health/live
+
+# Readiness (checks DB + Redis + MinIO + startup complete)
+curl http://localhost:8000/api/v1/admin/system/health/ready
+
+# Comprehensive (all components)
+curl http://localhost:8000/api/v1/admin/system/health/comprehensive
+```
 
 ## Working with Submodules
 
@@ -188,82 +286,55 @@ cd curatore-backend && git pull origin main
 git submodule update --init --recursive
 ```
 
-**Important:** When you make changes inside a submodule directory, commit those changes in that submodule's repository first. Then in curatore-localdev, run `git add curatore-backend` and commit to update the submodule reference.
+When you make changes inside a submodule, commit in that submodule's repo first, then update the reference in localdev:
+
+```bash
+cd curatore-backend && git add -A && git commit -m "message" && git push
+cd .. && git add curatore-backend && git commit -m "Update backend ref"
+```
 
 ## Clean Reinstall
 
-To tear down everything and start fresh:
-
 ```bash
-# Stop all services
 ./scripts/dev-down.sh
-
-# Remove all containers, images, volumes, and network
 docker ps -a --filter "name=curatore-" --format "{{.ID}}" | xargs -r docker rm -f
 docker images --format "{{.Repository}} {{.ID}}" | grep curatore | awk '{print $2}' | xargs -r docker rmi -f
 docker volume ls --format "{{.Name}}" | grep curatore | xargs -r docker volume rm -f
 docker network rm curatore-network
-
-# Start fresh
 ./scripts/dev-up.sh --with-postgres
-
-# Seed admin user
 docker exec curatore-backend python -m app.core.commands.seed --create-admin
 ```
 
-## Stopping Services
+## Troubleshooting
 
-```bash
-# Stop everything
-./scripts/dev-down.sh
+| Problem | Fix |
+|---------|-----|
+| `curatore-network not found` | `docker network create curatore-network` |
+| Backend won't start | Check `docker ps --filter "name=curatore-"` for unhealthy containers |
+| `relation does not exist` | `docker exec curatore-backend alembic upgrade head` |
+| Frontend can't reach backend | `NEXT_PUBLIC_API_URL` must be `http://localhost:8000` (browser-side) |
+| Worker not processing | `docker ps --filter "name=curatore-worker"` and `./scripts/dev-logs.sh worker` |
+| Config out of sync after `.env` edit | `./scripts/generate-env.sh` to regenerate all service configs |
 
-# Remove the shared network (optional)
-docker network rm curatore-network
-```
+## Documentation
 
-## Debugging
+| Document | Description |
+|----------|-------------|
+| [Platform Overview](docs/OVERVIEW.md) | Architecture, data flow, auth flows |
+| [Documentation Index](docs/INDEX.md) | Master map of all docs across all repos |
+| [Configuration](docs/CONFIGURATION.md) | `.env` vs `config.yml` philosophy and full reference |
+| [Document Processing](docs/DOCUMENT_PROCESSING.md) | Upload to extraction to indexing pipeline |
+| [Extraction Engines](docs/EXTRACTION_SERVICES.md) | Triage and engine comparison |
+| [Data Connections](docs/DATA_CONNECTIONS.md) | Adding new integrations |
 
-```bash
-# See all running Curatore containers (with health status)
-docker ps --filter "name=curatore-"
+Each service also has its own `CLAUDE.md` with service-specific development guidance.
 
-# Shell into a container
-docker exec -it curatore-backend bash
+## Service Repositories
 
-# Check container resource usage
-docker stats --filter "name=curatore-" --no-stream
-
-# Connect to PostgreSQL
-docker exec -it curatore-postgres psql -U curatore -d curatore
-
-# Check Redis
-docker exec curatore-redis redis-cli ping
-
-# Check Celery workers
-docker exec curatore-worker celery -A app.celery_app inspect active
-```
-
-### Common Issues
-
-**"curatore-network not found"** — The network is created by `dev-up.sh`. Create it manually:
-```bash
-docker network create curatore-network
-```
-
-**Backend won't start (dependency timeout)** — Check that infrastructure is running:
-```bash
-docker ps --filter "name=curatore-minio" --filter "name=curatore-redis" --filter "name=curatore-postgres"
-```
-
-**"relation does not exist" errors** — The backend auto-detects fresh installs and creates tables. If you see this on an existing database, run migrations manually:
-```bash
-docker exec curatore-backend alembic upgrade head
-```
-
-**Frontend can't reach backend** — The frontend uses `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:8000`). This is a browser-side URL, so it must be `localhost`, not `backend`.
-
-**Worker not processing jobs** — Check worker health and logs:
-```bash
-docker ps --filter "name=curatore-worker"  # Should show (healthy)
-./scripts/dev-logs.sh worker
-```
+| Service | Repository |
+|---------|-----------|
+| Backend | [curatore-backend](https://github.com/Amivero-LLC/curatore-backend) |
+| Frontend | [curatore-frontend](https://github.com/Amivero-LLC/curatore-frontend) |
+| Document Service | [curatore-document-service](https://github.com/Amivero-LLC/curatore-document-service) |
+| Playwright Service | [curatore-playwright-service](https://github.com/Amivero-LLC/curatore-playwright-service) |
+| MCP Gateway | [curatore-mcp-service](https://github.com/Amivero-LLC/curatore-mcp-service) |

@@ -78,7 +78,9 @@ Curatore is progressively breaking services into independent repos. The Playwrig
 
 **Already extracted:** Document Service (`extraction.engines[]`), Playwright (`playwright` section)
 
-**Current legacy debt:** The `Settings` class in `backend/app/config.py` still contains ~40 fields that are fully superseded by `config.yml` sections (LLM, search, SAM, email, extraction, playwright). These are harmless (config.yml takes priority) but will be cleaned up as services are extracted. Additionally, job management settings (`DEFAULT_JOB_CONCURRENCY_LIMIT`, etc.) and quality thresholds still live only in `.env`/Settings and should eventually move to `config.yml`.
+**Current legacy debt:** The `Settings` class in `backend/app/config.py` still contains ~40 fields that are fully superseded by `config.yml` sections (LLM, search, SAM, email, extraction, playwright). These are harmless (config.yml takes priority) but will be cleaned up as services are extracted. Job management settings (`DEFAULT_JOB_CONCURRENCY_LIMIT`, etc.) still live only in `.env`/Settings and should eventually move to `config.yml`.
+
+**Docker Compose `env_file` pattern:** The backend `docker-compose.yml` uses `env_file: .env` to pass all variables from `curatore-backend/.env` into containers. Only Docker-specific overrides (container names like `DOCUMENT_SERVICE_URL=http://document-service:8010`, runtime flags like `PYTHONUNBUFFERED=1`) remain in the `environment:` block. This means `generate-env.sh` is the single point of control — any variable the backend needs must be either in the generated `.env` or have a default in the `Settings` class.
 
 **Remaining infrastructure in `config.yml` that should use `${VAR}` references:**
 - `queue.broker_url` / `queue.result_backend` — Redis connection strings
@@ -88,34 +90,49 @@ Curatore is progressively breaking services into independent repos. The Playwrig
 
 ## Getting Started
 
-### Quick Start
+### Quick Start (recommended)
 
-1. Copy the example configuration:
-   ```bash
-   cp config.yml.example config.yml
-   ```
-
-2. Edit `config.yml` with your service credentials
-
-3. Validate your configuration:
-   ```bash
-   python -m app.commands.validate_config
-   ```
-
-4. Start the application:
-   ```bash
-   docker-compose up -d
-   ```
-
-### Migrating from .env
-
-If you have an existing `.env` file:
+Use `bootstrap.sh` to set up everything from a fresh clone:
 
 ```bash
-python scripts/migrate_env_to_yaml.py
+./scripts/bootstrap.sh
 ```
 
-This generates `config.yml` from your `.env` settings with proper structure and ${VAR_NAME} references for secrets.
+This creates the root `.env`, prompts for API keys, auto-generates secrets, and runs `generate-env.sh` to produce both `curatore-backend/.env` and `curatore-backend/config.yml`.
+
+### Manual Setup
+
+1. Create root `.env` and fill in values:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
+
+2. Generate per-service configs:
+   ```bash
+   ./scripts/generate-env.sh
+   ```
+   This reads the root `.env` and produces:
+   - `curatore-backend/.env` — infrastructure, credentials, Docker-internal URLs
+   - `curatore-backend/config.yml` — application behavior (from `scripts/templates/config.yml.template`)
+   - Per-service `.env` files for frontend, document-service, playwright, and MCP
+
+3. Start the application:
+   ```bash
+   ./scripts/dev-up.sh --with-postgres
+   ```
+
+### After editing root `.env`
+
+Always regenerate service configs:
+```bash
+./scripts/generate-env.sh
+```
+
+Then restart services for changes to take effect:
+```bash
+./scripts/dev-down.sh && ./scripts/dev-up.sh --with-postgres
+```
 
 ---
 
