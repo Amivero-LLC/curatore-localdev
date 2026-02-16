@@ -39,11 +39,11 @@ Settings that define what the application does. These answer "how should the app
 |---|---|
 | **Feature flags** | `enable_auth` |
 | **LLM configuration** | Provider, models, task types, temperatures |
-| **External service discovery** | Document Service URL/engine config, Playwright URL/settings |
+| **External service discovery** | Document Service URL, Playwright URL, service timeouts |
 | **Search behavior** | Mode, semantic weight, chunk size, batch size |
 | **Queue behavior** | Per-queue overrides (concurrency, timeouts) |
 | **Email behavior** | Backend, sender name/address |
-| **Integration settings** | SAM.gov rate limits, page sizes; MinIO bucket names |
+| **Integration settings** | SAM.gov rate limits, page sizes |
 
 ### Key Rules
 
@@ -65,7 +65,7 @@ llm:
 minio:
   endpoint: minio:9000             # Infrastructure — should use ${MINIO_ENDPOINT}
   access_key: ${MINIO_ACCESS_KEY}  # Secret from .env
-  bucket_uploads: curatore-uploads  # App-level naming
+  secure: false                    # Connectivity setting
 ```
 
 ### Service Breakout Migration Pattern
@@ -76,7 +76,9 @@ Curatore is progressively breaking services into independent repos. The Playwrig
 2. **Keep its discovery settings in `config.yml`** — service URL, API key reference, timeouts, behavior settings. These become the interface definition for how Curatore discovers and uses the external service.
 3. **Use the `connectors/adapters/` pattern** — Create a `ServiceAdapter` subclass with 3-tier config resolution: DB Connection → config.yml → env var fallback.
 
-**Already extracted:** Document Service (`extraction.engines[]`), Playwright (`playwright` section)
+**Already extracted:** Document Service (`extraction` section — flat service-discovery-only), Playwright (`playwright` section — flat service-discovery-only), MCP (`mcp` section)
+
+All extracted services follow the same pattern: `enabled`, `service_url`, `api_key`, `timeout`, plus service-specific connection fields. No service-internal settings (engine arrays, browser pool sizes, viewport dimensions, etc.) — those are managed by each service's own environment.
 
 **Current legacy debt:** The `Settings` class in `backend/app/config.py` still contains ~40 fields that are fully superseded by `config.yml` sections (LLM, search, SAM, email, extraction, playwright). These are harmless (config.yml takes priority) but will be cleaned up as services are extracted. Job management settings (`DEFAULT_JOB_CONCURRENCY_LIMIT`, etc.) still live only in `.env`/Settings and should eventually move to `config.yml`.
 
@@ -84,7 +86,8 @@ Curatore is progressively breaking services into independent repos. The Playwrig
 
 **Remaining infrastructure in `config.yml` that should use `${VAR}` references:**
 - `queue.broker_url` / `queue.result_backend` — Redis connection strings
-- `minio.endpoint` / `minio.secure` — MinIO infrastructure settings
+
+**Storage bucket names** (`curatore-original`, `curatore-processed`, `curatore-temp`) are application constants defined in `app/core/storage/buckets.py`, not configurable settings. They are not in `config.yml` or `.env`.
 
 ---
 
@@ -262,34 +265,32 @@ llm:
 
 Configure the standalone Document Service for document extraction.
 
-The backend delegates all extraction to the Document Service, which handles triage and engine selection internally (fast_pdf, markitdown, docling). The backend connects via the `DocumentServiceAdapter` using 3-tier config resolution: DB Connection → config.yml → environment variables.
+The backend delegates all extraction to the Document Service, which handles triage and engine selection internally (fast_pdf, markitdown, docling). The backend connects via the `DocumentServiceAdapter` using 3-tier config resolution: DB Connection → config.yml → environment variables. The config is service-discovery-only — engine selection and service-internal settings are managed by the Document Service itself.
 
-**Engine Configuration:**
-- `name`: Engine identifier
-- `engine_type`: `document-service`
-- `service_url`: Document Service endpoint URL
-- `enabled`: Enable/disable (default: true)
-- `timeout`: Request timeout in seconds (default: 300)
-- `verify_ssl`: Verify SSL certificates (default: true)
+**Configuration:**
+- `extraction.enabled`: Enable/disable extraction (default: true)
+- `extraction.service_url`: Document Service endpoint URL
+- `extraction.api_key`: API key for authentication (optional)
+- `extraction.timeout`: Request timeout in seconds (default: 240)
+- `extraction.verify_ssl`: Verify SSL certificates (default: true)
 
 **Environment Variables (fallback):**
 - `DOCUMENT_SERVICE_URL`: Document Service URL (e.g., `http://document-service:8010`)
 - `DOCUMENT_SERVICE_API_KEY`: API key (optional)
-- `DOCUMENT_SERVICE_TIMEOUT`: Request timeout in seconds (default: 300)
+- `DOCUMENT_SERVICE_TIMEOUT`: Request timeout in seconds (default: 240)
 - `DOCUMENT_SERVICE_VERIFY_SSL`: Verify SSL (default: true)
 
 **Example:**
 ```yaml
 extraction:
-  engines:
-    - name: document-service
-      engine_type: document-service
-      service_url: http://document-service:8010
-      timeout: 300
-      enabled: true
+  enabled: true
+  service_url: http://document-service:8010
+  api_key: ${DOCUMENT_SERVICE_API_KEY}
+  timeout: 240
+  verify_ssl: true
 ```
 
-> **Note:** Docling is configured inside the Document Service itself (via `DOCLING_SERVICE_URL`), not in the backend. The backend no longer communicates with Docling directly.
+> **Note:** Docling is configured inside the Document Service itself (via `DOCLING_SERVICE_URL`), not in the backend. The backend no longer communicates with Docling directly. Engine triage, OCR settings, and all extraction internals are managed by the Document Service.
 
 ---
 
@@ -636,12 +637,11 @@ llm:
   max_retries: 3
 
 extraction:
-  engines:
-    - name: document-service
-      engine_type: document-service
-      service_url: http://document-service:8010
-      timeout: 300
-      enabled: true
+  enabled: true
+  service_url: http://document-service:8010
+  api_key: ${DOCUMENT_SERVICE_API_KEY}
+  timeout: 240
+  verify_ssl: true
 
 sharepoint:
   enabled: true
@@ -689,6 +689,6 @@ For questions or issues:
 
 ---
 
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-16
 
 **Version**: Curatore v2.1.0

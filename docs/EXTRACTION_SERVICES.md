@@ -189,33 +189,18 @@ Uses file size as a complexity proxy:
 
 ### config.yml
 
+The backend's extraction config is service-discovery-only. Engine triage, OCR settings, and Docling routing are managed by the Document Service internally.
+
 ```yaml
 extraction:
-  default_engine: document-service
-
-  engines:
-    # Document Service (MarkItDown)
-    - name: document-service
-      display_name: "Document Service"
-      description: "External document service using MarkItDown"
-      engine_type: document-service
-      service_url: http://document-service:8010
-      timeout: 240
-      enabled: true
-
-    # Docling (External)
-    - name: docling-external
-      display_name: "Docling (Host Machine)"
-      description: "Docling running on host machine"
-      engine_type: docling
-      service_url: http://host.docker.internal:5001
-      timeout: 300
-      enabled: true
-      options:
-        to_formats: ["md"]
-        ocr_engine: auto
-        table_mode: accurate
+  enabled: true
+  service_url: http://document-service:8010
+  api_key: ${DOCUMENT_SERVICE_API_KEY}
+  timeout: 240
+  verify_ssl: true
 ```
+
+The Document Service connects to Docling via its own `DOCLING_SERVICE_URL` environment variable. The backend does not need to know about individual engines.
 
 ### Docker Compose
 
@@ -276,6 +261,6 @@ docker-compose up -d worker
 - [MarkItDown](https://github.com/microsoft/markitdown)
 - [PyMuPDF](https://pymupdf.readthedocs.io/)
 
-## Updated: 2026-02-15
+## Updated: 2026-02-16
 
 Triage-based architecture with fast_pdf, document-service, and docling engines.

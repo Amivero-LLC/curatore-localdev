@@ -52,7 +52,7 @@ Documents enter Curatore through multiple sources:
 | SAM.gov | SAM pull job | `sam_gov` |
 
 **What Happens**:
-1. File uploaded to MinIO (`curatore-uploads` bucket)
+1. File uploaded to MinIO (`curatore-original` bucket)
 2. `Asset` record created with `status=pending`
 3. `Run` record created with `run_type=extraction`
 4. Extraction task queued to Celery
@@ -132,19 +132,18 @@ ExtractionResult {
 The backend connects to the Document Service via the `DocumentServiceAdapter`. Configuration follows the 3-tier resolution pattern:
 
 1. **DB Connection** (per-org): Connection record with `connection_type=extraction`
-2. **config.yml**: `extraction.engines` section
+2. **config.yml**: `extraction` section (flat, service-discovery-only)
 3. **Environment variables**: `DOCUMENT_SERVICE_URL`, `DOCUMENT_SERVICE_API_KEY`, `DOCUMENT_SERVICE_TIMEOUT`, `DOCUMENT_SERVICE_VERIFY_SSL`
 
 ### config.yml Example
 
 ```yaml
 extraction:
-  engines:
-    - name: document-service
-      engine_type: document-service
-      service_url: http://document-service:8010
-      timeout: 300
-      enabled: true
+  enabled: true
+  service_url: http://document-service:8010
+  api_key: ${DOCUMENT_SERVICE_API_KEY}
+  timeout: 240
+  verify_ssl: true
 ```
 
 ### docker-compose.yml

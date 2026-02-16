@@ -1361,10 +1361,11 @@ For files that should persist (like attachments), use MinIO:
 
 ```python
 from app.core.storage.minio_service import minio_service
+from app.core.storage.buckets import BUCKET_ORIGINAL
 
 # Upload
 await minio_service.upload_file(
-    bucket="curatore-uploads",
+    bucket=BUCKET_ORIGINAL,
     key=f"{org_id}/salesforce/attachments/{filename}",
     data=file_content,
     content_type="application/pdf",
@@ -1372,7 +1373,7 @@ await minio_service.upload_file(
 
 # Download
 content = await minio_service.download_file(
-    bucket="curatore-uploads",
+    bucket=BUCKET_ORIGINAL,
     key=storage_key,
 )
 ```
@@ -2235,9 +2236,10 @@ async def import_data(
     content = await file.read()
 
     # Upload to MinIO temp bucket (NOT local filesystem)
+    from app.core.storage.buckets import BUCKET_TEMP
     minio_key = f"{current_user.organization_id}/my_data/imports/{uuid_module.uuid4().hex}.zip"
     minio.put_object(
-        bucket=minio.bucket_temp,  # Temp bucket has auto-cleanup lifecycle
+        bucket=BUCKET_TEMP,  # Temp bucket has auto-cleanup lifecycle
         key=minio_key,
         data=BytesIO(content),
         length=len(content),
@@ -2286,7 +2288,7 @@ def my_import_task(
     try:
         # Download from MinIO to local temp file for processing
         minio = MinioService()
-        zip_content = minio.get_object(minio.bucket_temp, minio_key)
+        zip_content = minio.get_object(BUCKET_TEMP, minio_key)
 
         with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
             tmp.write(zip_content.getvalue())
@@ -2312,7 +2314,7 @@ def my_import_task(
 
         try:
             minio = MinioService()
-            minio.remove_object(minio.bucket_temp, minio_key)
+            minio.remove_object(BUCKET_TEMP, minio_key)
         except Exception:
             pass  # Temp bucket lifecycle will clean up eventually
 ```

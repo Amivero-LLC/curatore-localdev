@@ -73,7 +73,7 @@ flowchart LR
 
     subgraph Processing["Processing Pipeline"]
         Asset["Asset Record\n(status=pending)"]
-        MinIO_Up["MinIO\n(uploads bucket)"]
+        MinIO_Up["MinIO\n(original bucket)"]
         DocSvc["Document Service\n(triage + extract)"]
         MinIO_Proc["MinIO\n(processed bucket)"]
         Indexer["Search Indexer\n(chunk + embed)"]
