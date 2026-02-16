@@ -292,6 +292,31 @@ extraction:
 
 > **Note:** Docling is configured inside the Document Service itself (via `DOCLING_SERVICE_URL`), not in the backend. The backend no longer communicates with Docling directly. Engine triage, OCR settings, and all extraction internals are managed by the Document Service.
 
+### Docling (Document Service Sidecar)
+
+Docling provides OCR and layout analysis for complex documents. It runs as a profiled Docker service alongside the document-service — not as a backend service.
+
+**Root `.env` toggles** (read by `generate-env.sh` and `dev-up.sh`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_DOCLING_SERVICE` | `false` | Start the Docling container with the document-service compose |
+| `ENABLE_DOCLING_GPU` | `false` | Use GPU image (`docling-serve-cu128`) instead of CPU (`docling-serve-cpu`). Requires nvidia-docker runtime. |
+| `ENABLE_DOCLING_UI` | `false` | Enable Docling's built-in web UI at http://localhost:5151 |
+
+**Generated document-service `.env` variables** (written by `generate-env.sh`):
+
+| Variable | Value when enabled | Value when disabled | Description |
+|----------|-------------------|---------------------|-------------|
+| `DOCLING_SERVICE_URL` | `http://docling:5001` | *(empty)* | Document-service uses this to proxy complex extractions to Docling |
+| `DOCLING_TIMEOUT` | `300` | `300` | Request timeout in seconds |
+| `DOCLING_VERIFY_SSL` | `false` | `false` | SSL verification for Docling connection |
+| `DOCLING_SERVE_ENABLE_UI` | `1` | `0` | Mapped from `ENABLE_DOCLING_UI` boolean |
+
+When `DOCLING_SERVICE_URL` is empty, the document-service disables Docling routing and falls back to `fast_pdf` (PyMuPDF) for PDFs and `markitdown` for Office documents.
+
+For external Docling instances (not managed by Docker Compose), set `ENABLE_DOCLING_SERVICE=false` and manually add `DOCLING_SERVICE_URL=https://your-docling-host:5001` to `curatore-document-service/.env`.
+
 ---
 
 ### Microsoft SharePoint
