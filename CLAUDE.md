@@ -105,6 +105,19 @@ git submodule update --remote
 | Playwright Service | [curatore-playwright-service/CLAUDE.md](curatore-playwright-service/CLAUDE.md) | Browser rendering |
 | MCP Service | [curatore-mcp-service/CLAUDE.md](curatore-mcp-service/CLAUDE.md) | AI tool gateway |
 
+## Platform Documentation
+
+Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay in each repo.
+
+| Document | Description |
+|----------|-------------|
+| [Platform Overview](docs/OVERVIEW.md) | Architecture, data flow, auth flows (Mermaid) |
+| [Documentation Index](docs/INDEX.md) | Master map of all docs across all repos |
+| [Configuration](docs/CONFIGURATION.md) | .env vs config.yml philosophy |
+| [Document Processing](docs/DOCUMENT_PROCESSING.md) | Upload → extraction → indexing pipeline |
+| [Extraction Engines](docs/EXTRACTION_SERVICES.md) | Triage, engine comparison |
+| [Data Connections](docs/DATA_CONNECTIONS.md) | Adding new integrations |
+
 ## Quick Debugging
 
 | Problem | Fix |
