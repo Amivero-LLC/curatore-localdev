@@ -7,6 +7,7 @@
 #   ./scripts/dev-logs.sh backend      # Backend API only
 #   ./scripts/dev-logs.sh worker       # Celery worker only
 #   ./scripts/dev-logs.sh frontend     # Frontend only
+#   ./scripts/dev-logs.sh docling      # Docling engine
 #   ./scripts/dev-logs.sh all          # All containers
 # ============================================================================
 set -euo pipefail
@@ -47,11 +48,14 @@ case "${SERVICE}" in
   postgres)
     docker logs -f curatore-postgres
     ;;
+  docling)
+    docker logs -f curatore-docling
+    ;;
   all)
-    docker logs -f curatore-backend curatore-worker curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp 2>/dev/null
+    docker logs -f curatore-backend curatore-worker curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp curatore-docling 2>/dev/null
     ;;
   *)
-    echo "Usage: dev-logs.sh [backend|worker|beat|frontend|mcp|document-service|playwright|minio|redis|postgres|all]"
+    echo "Usage: dev-logs.sh [backend|worker|beat|frontend|mcp|document-service|playwright|docling|minio|redis|postgres|all]"
     echo ""
     echo "Without arguments, shows backend logs."
     echo ""

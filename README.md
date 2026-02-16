@@ -214,7 +214,8 @@ These are set by `generate-env.sh` or `docker-compose.yml` and don't need to be 
 | `./scripts/generate-env.sh --check` | Validate root `.env` has all required fields |
 | `./scripts/dev-up.sh --with-postgres` | Start all services (includes local PostgreSQL) |
 | `./scripts/dev-up.sh --all` | Start everything including optional services (Docling) |
-| `./scripts/dev-up.sh --with-docling` | Start with optional Docling extraction engine |
+| `./scripts/dev-up.sh --with-docling` | Start with optional Docling extraction engine (CPU) |
+| `./scripts/dev-up.sh --with-docling-gpu` | Start with Docling GPU variant (requires nvidia-docker) |
 | `./scripts/dev-down.sh` | Stop all services |
 | `./scripts/dev-logs.sh` | Backend logs |
 | `./scripts/dev-logs.sh worker` | Celery worker logs |

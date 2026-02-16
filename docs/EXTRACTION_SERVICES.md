@@ -204,9 +204,21 @@ The Document Service connects to Docling via its own `DOCLING_SERVICE_URL` envir
 
 ### Docker Compose
 
+Docling runs as a profiled service inside the **document-service** compose file (not the backend). Use the localdev scripts or compose directly:
+
 ```bash
-# Enable Docling (optional)
-docker-compose --profile docling up -d
+# Via localdev scripts (recommended)
+./scripts/dev-up.sh --with-docling       # CPU variant
+./scripts/dev-up.sh --with-docling-gpu   # GPU variant (requires nvidia-docker)
+
+# Or via .env toggles (read automatically by dev-up.sh)
+ENABLE_DOCLING_SERVICE=true              # in root .env
+ENABLE_DOCLING_GPU=false                 # set true for GPU variant
+
+# Or directly via compose
+cd curatore-document-service
+docker compose --profile docling up -d      # CPU
+docker compose --profile docling-gpu up -d  # GPU
 ```
 
 ## Health Checks

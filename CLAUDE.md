@@ -21,9 +21,12 @@ To regenerate service configs after editing `.env`:
 
 ```bash
 ./scripts/dev-up.sh --with-postgres    # Start everything
+./scripts/dev-up.sh --with-docling     # Include Docling engine (CPU)
+./scripts/dev-up.sh --with-docling-gpu # Include Docling engine (GPU)
 ./scripts/dev-down.sh                  # Stop everything
 ./scripts/dev-logs.sh                  # Backend logs
 ./scripts/dev-logs.sh worker           # Worker logs
+./scripts/dev-logs.sh docling          # Docling logs
 ./scripts/dev-logs.sh all              # All logs
 ./scripts/dev-status.sh               # Service status
 ./scripts/dev-check.sh                 # Full quality check (lint + security + tests)
@@ -62,6 +65,7 @@ All services share `curatore-network` (external Docker network, created by `dev-
              worker ──┘     ├──── minio (:9000/:9001)            │
              beat ──────────┤                                    │
                             ├──── document-service (:8010)       │
+                            │        └──── docling (:5001/:5151) │
                             └──── playwright (:8011)             │
                     └─────────────────────────────────────────────┘
 ```
@@ -77,6 +81,7 @@ Services reference each other by Docker container name, **not** `localhost`:
 | `redis` | `redis:6379` | Celery broker + cache |
 | `minio` | `minio:9000` | Object storage |
 | `document-service` | `http://document-service:8010` | Extraction |
+| `docling` | `http://docling:5001` | Docling OCR/layout engine |
 | `playwright` | `http://playwright:8011` | Rendering |
 | `mcp` | `http://mcp:8020` | AI gateway |
 | `frontend` | `http://frontend:3000` | Web UI |
@@ -145,6 +150,8 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | `relation does not exist` on existing DB | `docker exec curatore-backend alembic upgrade head` |
 | Frontend can't reach backend | `NEXT_PUBLIC_API_URL` must be `http://localhost:8000` (browser-side URL) |
 | Worker not processing jobs | Check `docker ps --filter "name=curatore-worker"` and `./scripts/dev-logs.sh worker` |
+| Docling not starting / unhealthy | CPU variant needs ~60s start_period for model loading; GPU needs ~120s. Check `./scripts/dev-logs.sh docling` and ensure `ENABLE_DOCLING_SERVICE=true` in root `.env` |
+| Docling GPU fails | Ensure nvidia-docker runtime is installed and `ENABLE_DOCLING_GPU=true` in root `.env` |
 
 ## Clean Reinstall
 

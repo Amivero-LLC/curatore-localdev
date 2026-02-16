@@ -5,10 +5,11 @@
 # Creates the shared Docker network and starts services in dependency order.
 #
 # Usage:
-#   ./scripts/dev-up.sh                  # Core services only
-#   ./scripts/dev-up.sh --all            # All services including optional ones
-#   ./scripts/dev-up.sh --with-postgres  # Include PostgreSQL
-#   ./scripts/dev-up.sh --with-docling   # Include Docling engine
+#   ./scripts/dev-up.sh                      # Core services only
+#   ./scripts/dev-up.sh --all                # All services including optional ones
+#   ./scripts/dev-up.sh --with-postgres      # Include PostgreSQL
+#   ./scripts/dev-up.sh --with-docling       # Include Docling engine (CPU)
+#   ./scripts/dev-up.sh --with-docling-gpu   # Include Docling engine (GPU)
 # ============================================================================
 set -euo pipefail
 
@@ -18,13 +19,15 @@ ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # Parse flags
 WITH_POSTGRES=false
 WITH_DOCLING=false
+WITH_DOCLING_GPU=false
 WITH_ALL=false
 
 for arg in "$@"; do
   case "$arg" in
-    --with-postgres) WITH_POSTGRES=true ;;
-    --with-docling)  WITH_DOCLING=true ;;
-    --all)           WITH_ALL=true ;;
+    --with-postgres)    WITH_POSTGRES=true ;;
+    --with-docling)     WITH_DOCLING=true ;;
+    --with-docling-gpu) WITH_DOCLING_GPU=true ;;
+    --all)              WITH_ALL=true ;;
   esac
 done
 
@@ -33,12 +36,25 @@ if [[ "$WITH_ALL" == "true" ]]; then
   WITH_DOCLING=true
 fi
 
-# Read feature flags from backend .env if present
-if [[ -f "${ROOT}/curatore-backend/.env" ]]; then
-  _env_postgres="$(grep -E '^ENABLE_POSTGRES_SERVICE=' "${ROOT}/curatore-backend/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')"
+# Read feature flags from root .env if present
+if [[ -f "${ROOT}/.env" ]]; then
+  _env_postgres="$(grep -E '^ENABLE_POSTGRES_SERVICE=' "${ROOT}/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')"
   if [[ "$_env_postgres" == "true" ]]; then
     WITH_POSTGRES=true
   fi
+  _env_docling="$(grep -E '^ENABLE_DOCLING_SERVICE=' "${ROOT}/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')"
+  if [[ "$_env_docling" == "true" ]]; then
+    WITH_DOCLING=true
+  fi
+  _env_docling_gpu="$(grep -E '^ENABLE_DOCLING_GPU=' "${ROOT}/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')"
+  if [[ "$_env_docling_gpu" == "true" ]]; then
+    WITH_DOCLING_GPU=true
+  fi
+fi
+
+# GPU flag implies docling is enabled; GPU overrides CPU
+if [[ "$WITH_DOCLING_GPU" == "true" ]]; then
+  WITH_DOCLING=true
 fi
 
 echo "============================================"
@@ -51,27 +67,35 @@ echo "1. Creating shared Docker network..."
 docker network create curatore-network 2>/dev/null && echo "   Created curatore-network" || echo "   curatore-network already exists"
 echo ""
 
-# ---- 2. Start backend + Redis + MinIO (+ optional Postgres, Docling) ----
+# ---- 2. Start backend + Redis + MinIO (+ optional Postgres) ----
 echo "2. Starting Backend (API + Worker + Beat + Redis + MinIO)..."
 cd "${ROOT}/curatore-backend"
 
-PROFILES=""
+BACKEND_PROFILES=""
 if [[ "$WITH_POSTGRES" == "true" ]]; then
-  PROFILES="${PROFILES} --profile postgres"
+  BACKEND_PROFILES="${BACKEND_PROFILES} --profile postgres"
   echo "   Including PostgreSQL"
 fi
-if [[ "$WITH_DOCLING" == "true" ]]; then
-  PROFILES="${PROFILES} --profile docling"
-  echo "   Including Docling"
-fi
 
-docker compose ${PROFILES} up -d --build
+docker compose ${BACKEND_PROFILES} up -d --build
 echo ""
 
-# ---- 3. Start Document Service ----
+# ---- 3. Start Document Service (+ optional Docling) ----
 echo "3. Starting Document Service..."
 cd "${ROOT}/curatore-document-service"
-docker compose up -d
+
+DOC_PROFILES=""
+if [[ "$WITH_DOCLING" == "true" ]]; then
+  if [[ "$WITH_DOCLING_GPU" == "true" ]]; then
+    DOC_PROFILES="--profile docling-gpu"
+    echo "   Including Docling (GPU)"
+  else
+    DOC_PROFILES="--profile docling"
+    echo "   Including Docling (CPU)"
+  fi
+fi
+
+docker compose ${DOC_PROFILES} up -d
 echo ""
 
 # ---- 4. Start Playwright Service ----
@@ -134,6 +158,10 @@ echo "  MinIO Console:    http://localhost:9001"
 echo "  Redis:            localhost:6379"
 if [[ "$WITH_POSTGRES" == "true" ]]; then
 echo "  PostgreSQL:       localhost:5432"
+fi
+if [[ "$WITH_DOCLING" == "true" ]]; then
+echo "  Docling:          http://localhost:5151"
+echo "  Docling (internal): http://docling:5001"
 fi
 echo ""
 echo "  View logs: ./scripts/dev-logs.sh"
