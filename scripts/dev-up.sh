@@ -94,11 +94,29 @@ echo ""
 
 # ---- 7. Initialize storage buckets ----
 echo "7. Initializing storage buckets..."
-sleep 5  # Wait for backend to start
-"${ROOT}/curatore-backend/scripts/init_storage.sh" 2>/dev/null || {
-  echo "   Storage init deferred — backend may still be starting."
-  echo "   Run manually: ${ROOT}/curatore-backend/scripts/init_storage.sh"
-}
+echo "   Waiting for backend readiness..."
+READY=false
+for i in $(seq 1 60); do
+  if curl -sf http://localhost:8000/api/v1/admin/system/health/ready >/dev/null 2>&1; then
+    READY=true
+    echo "   Backend ready (${i}s)"
+    break
+  fi
+  sleep 5
+done
+
+if [[ "$READY" == "true" ]]; then
+  "${ROOT}/curatore-backend/scripts/init_storage.sh" || {
+    echo ""
+    echo "   ERROR: Storage initialization failed."
+    echo "   Check backend logs: ./scripts/dev-logs.sh"
+    echo "   Retry manually: ${ROOT}/curatore-backend/scripts/init_storage.sh"
+  }
+else
+  echo "   WARNING: Backend did not become ready within 300s."
+  echo "   Storage init skipped — run manually after backend starts:"
+  echo "     ${ROOT}/curatore-backend/scripts/init_storage.sh"
+fi
 echo ""
 
 # ---- Summary ----
