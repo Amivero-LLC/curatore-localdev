@@ -168,6 +168,14 @@ current_secret="$(env_get MS_CLIENT_SECRET)"
 val="$(prompt_value "MS Graph Client Secret" MS_CLIENT_SECRET "$current_secret")"
 [[ -n "$val" ]] && env_set MS_CLIENT_SECRET "$val"
 
+current_sender="$(env_get MS_EMAIL_SENDER)"
+if [[ -z "$current_sender" ]]; then
+  echo "   Email sender address enables invitation emails via Microsoft Graph."
+  echo "   (e.g., noreply@yourcompany.com — must be a valid mailbox or shared mailbox)"
+fi
+val="$(prompt_value "MS Graph Email Sender" MS_EMAIL_SENDER "$current_sender")"
+[[ -n "$val" ]] && env_set MS_EMAIL_SENDER "$val"
+
 echo ""
 
 # --------------------------------------------------------------------------

@@ -119,6 +119,7 @@ ENABLE_AUTH="$(env_get ENABLE_AUTH "true")"
 EMAIL_BACKEND="$(env_get EMAIL_BACKEND "console")"
 EMAIL_FROM_ADDRESS="$(env_get EMAIL_FROM_ADDRESS "noreply@curatore.app")"
 EMAIL_FROM_NAME="$(env_get EMAIL_FROM_NAME "Curatore")"
+MS_EMAIL_SENDER="$(env_get MS_EMAIL_SENDER)"
 SEARCH_ENABLED="$(env_get SEARCH_ENABLED "true")"
 LOG_LEVEL="$(env_get LOG_LEVEL "INFO")"
 
@@ -216,6 +217,13 @@ else
   MS_GRAPH_ENABLED="false"
 fi
 
+# Enable MS Graph email when Graph is configured and a sender address is set
+if [[ "$MS_GRAPH_ENABLED" == "true" && -n "$MS_EMAIL_SENDER" ]]; then
+  MS_ENABLE_EMAIL="true"
+else
+  MS_ENABLE_EMAIL="false"
+fi
+
 # Use sed to substitute all placeholders.
 # We use | as delimiter to avoid conflicts with URLs containing /
 sed \
@@ -230,6 +238,8 @@ sed \
   -e "s|__MS_TENANT_ID__|${MS_TENANT_ID}|g" \
   -e "s|__MS_CLIENT_ID__|${MS_CLIENT_ID}|g" \
   -e "s|__MS_CLIENT_SECRET__|${MS_CLIENT_SECRET}|g" \
+  -e "s|__MS_ENABLE_EMAIL__|${MS_ENABLE_EMAIL}|g" \
+  -e "s|__MS_EMAIL_SENDER__|${MS_EMAIL_SENDER}|g" \
   "${TEMPLATE}" > "${ROOT}/curatore-backend/config.yml"
 
 # --------------------------------------------------------------------------
