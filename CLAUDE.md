@@ -103,7 +103,7 @@ Services reference each other by Docker container name on `curatore-network`:
 # Liveness (zero I/O, always 200)
 curl http://localhost:8000/api/v1/admin/system/health/live
 
-# Readiness (checks DB + Redis + MinIO)
+# Readiness (checks DB + Redis + MinIO + startup complete)
 curl http://localhost:8000/api/v1/admin/system/health/ready
 
 # Comprehensive (all components, basic status)
@@ -113,6 +113,8 @@ curl http://localhost:8000/api/v1/admin/system/health/comprehensive
 curl -H "Authorization: Bearer <token>" \
   http://localhost:8000/api/v1/admin/system/health/comprehensive
 ```
+
+All health endpoints are public (no auth for basic status). Authenticated requests return full diagnostics (tables, pool stats, connection URLs, etc.).
 
 ### Database Commands
 
@@ -132,6 +134,87 @@ docker exec -it curatore-postgres psql -U curatore -d curatore
 
 ---
 
+## Startup Sequence & Hardening
+
+### Docker Healthcheck & Dependency Chain
+
+The backend `docker-compose.yml` enforces startup ordering via healthchecks and `depends_on` conditions:
+
+| Container | Healthcheck | Starts After |
+|-----------|------------|-------------|
+| `redis` | `redis-cli ping` | — |
+| `minio` | MinIO `/health/live` | — |
+| `postgres` | `pg_isready` (profile-gated) | — |
+| `backend` | `/api/v1/admin/system/health/ready` (90s start_period) | Redis healthy, MinIO healthy |
+| `worker` | `celery inspect ping` | Redis healthy |
+| `beat` | — | Redis healthy, Backend healthy |
+
+The backend healthcheck uses the **readiness** endpoint (not liveness), so Docker won't report it as healthy until the full startup sequence completes.
+
+### Backend Pre-Start Checks (`prestart.py`)
+
+Before the FastAPI app accepts requests, `prestart.py` runs synchronously in a thread pool:
+
+```
+ 1. Wait for PostgreSQL ── 30 retries × 2s = 60s max
+ 2. Wait for Redis ─────── 15 retries × 2s = 30s max
+ 3. Wait for MinIO ─────── 15 retries × 2s = 30s max (if USE_OBJECT_STORAGE=true)
+ 4. Detect fresh install ─ Check alembic_version table
+ 5. Schema setup:
+    Fresh:    Base.metadata.create_all() + seed roles + create VIEWs + alembic stamp head
+    Existing: alembic upgrade head (idempotent)
+ 6. Auto-seed if fresh ── system org, default org, data sources, scheduled tasks
+    (System org failure is fatal — exit code 3)
+ 7. Print admin user creation instructions
+```
+
+### Full Startup Event Sequence (main.py)
+
+After prestart completes:
+
+```
+ 1. Config.yml validation (fail-fast)
+ 2. Pre-start checks (dependency waiting, migrations, seeding)    ← prestart.py
+ 3. Queue registry initialization
+ 4. Facet reference data baseline
+ 5. Metadata registry baseline sync
+ 6. Metadata validation
+ 7. Scheduled task baseline
+ 8. System org + procedure/pipeline discovery
+ 9. Connection sync from environment
+10. System services sync from config.yml
+11. MinIO bucket initialization
+12. LLM status + embedding config validation
+13. mark_startup_complete() → readiness probe returns 200
+```
+
+### Storage Initialization
+
+`dev-up.sh` polls the backend readiness endpoint (`/health/ready`) for up to 5 minutes before running `init_storage.sh`. This creates three MinIO buckets with lifecycle policies:
+
+| Bucket | Retention | Purpose |
+|--------|-----------|---------|
+| `curatore-uploads` | 30 days | File uploads |
+| `curatore-processed` | 90 days | Extracted markdown |
+| `curatore-temp` | 7 days | Temporary files |
+
+### Fresh Install Behavior
+
+On a brand-new database (no `alembic_version` table), prestart.py:
+
+1. **Creates all tables** via `Base.metadata.create_all()` (SQLAlchemy models)
+2. **Seeds reference data** — `admin` and `member` roles (required for user creation)
+3. **Creates SQL VIEWs** — `unified_forecasts` (required for forecast queries)
+4. **Stamps Alembic** — `alembic stamp head` marks all migrations as applied
+5. **Auto-seeds** — system org (`__system__`), default org, data source config, scheduled tasks
+6. **Logs instruction** — `Run python -m app.core.commands.seed --create-admin to create admin user`
+
+Admin user creation is **always manual** for security.
+
+**Reference data parity:** When adding a new Alembic migration that INSERTs reference data or creates SQL VIEWs, you MUST also update `_create_all_tables()` in `prestart.py` to maintain parity with the fresh install path.
+
+---
+
 ## Service Details
 
 Each sub-repo has its own `CLAUDE.md` with service-specific guidance. Below is a cross-service summary.
@@ -143,18 +226,10 @@ Each sub-repo has its own `CLAUDE.md` with service-specific guidance. Below is a
 **Key files:**
 - `backend/app/main.py` — FastAPI entry point with startup sequence
 - `backend/app/config.py` — Pydantic settings (reads `.env`)
+- `backend/app/core/commands/prestart.py` — Dependency waiting, fresh install detection, migrations
 - `config.yml` — Application configuration (LLM, search, services)
 - `.env` — Secrets and infrastructure config
 - `docker-compose.yml` — Backend + Worker + Beat + Redis + MinIO + Postgres
-
-**Startup sequence:**
-1. Validate `config.yml` (fail-fast)
-2. Pre-start checks: wait for PostgreSQL, Redis, MinIO (with retries)
-3. Detect fresh install, run Alembic migrations
-4. Auto-seed if fresh (system org, default org, data sources, scheduled tasks)
-5. Queue registry, metadata baseline, procedure discovery
-6. Connection sync, MinIO bucket init, LLM validation
-7. `mark_startup_complete()` → readiness probe returns 200
 
 **Three containers from one image:**
 - `curatore-backend` — `uvicorn` serving the API
@@ -259,12 +334,35 @@ git submodule status
 
 ---
 
+## Clean Reinstall
+
+To tear down everything and start completely fresh:
+
+```bash
+# Stop all services
+./scripts/dev-down.sh
+
+# Remove all curatore containers, images, volumes, and network
+docker ps -a --filter "name=curatore-" --format "{{.ID}}" | xargs -r docker rm -f
+docker images --format "{{.Repository}} {{.ID}}" | grep curatore | awk '{print $2}' | xargs -r docker rmi -f
+docker volume ls --format "{{.Name}}" | grep curatore | xargs -r docker volume rm -f
+docker network rm curatore-network
+
+# Start fresh
+./scripts/dev-up.sh --with-postgres
+
+# Seed admin user
+docker exec curatore-backend python -m app.core.commands.seed --create-admin
+```
+
+---
+
 ## Debugging
 
 ### Container Inspection
 
 ```bash
-# See all running Curatore containers
+# See all running Curatore containers (with health status)
 docker ps --filter "name=curatore-"
 
 # Shell into a container
@@ -282,23 +380,25 @@ docker network create curatore-network
 ```
 
 **Backend won't start (dependency timeout)**
-Check that MinIO and Redis are running:
+Check that MinIO, Redis, and PostgreSQL are running and healthy:
 ```bash
-docker ps --filter "name=curatore-minio" --filter "name=curatore-redis"
+docker ps --filter "name=curatore-minio" --filter "name=curatore-redis" --filter "name=curatore-postgres"
 ```
 
 **"relation does not exist" errors**
-Migrations haven't run. The backend runs them automatically on startup, but you can force:
+On existing databases, run migrations:
 ```bash
 docker exec curatore-backend alembic upgrade head
 ```
+On fresh installs, this is handled automatically by `prestart.py`.
 
 **Frontend can't reach backend**
 The frontend uses `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:8000`). This is a browser-side URL, so it must be `localhost`, not `backend`.
 
 **Worker not processing jobs**
-Check worker logs and Redis connectivity:
+Check worker health and logs:
 ```bash
+docker ps --filter "name=curatore-worker"  # Should show (healthy)
 ./scripts/dev-logs.sh worker
 docker exec curatore-redis redis-cli ping
 ```
