@@ -98,6 +98,10 @@ Services reference each other by Docker container name, **not** `localhost`:
 5. **Five containers, one image** — Backend, worker-fast, worker-heavy, worker-integrations, and beat all run from the same Docker image
 6. **Service auth pattern** — All extracted services use optional `SERVICE_API_KEY`: empty = dev mode, set = validates `Authorization: Bearer <key>`
 7. **Hot reload** — Python services mount `./app:/app/app` + `uvicorn --reload`; frontend mounts `.:/app` + `npm run dev`. No rebuild needed for source changes.
+8. **Push-based health monitoring** — Three patterns, zero inter-service polling. See [Health Monitoring](docs/OVERVIEW.md#health-monitoring) for full details.
+   - **Core infrastructure** (backend, database, redis, storage, workers, beat): backend/worker processes write their own heartbeats every 30s.
+   - **Extracted services** (document-service, playwright, mcp): each service self-registers via `app/services/heartbeat_writer.py` every 30s. The backend does **not** poll them.
+   - **External APIs** (LLM, SharePoint): event-driven via `ExternalServiceMonitor` — check on startup, consumers report errors/success, recovery poll only when unhealthy.
 
 ## Cross-Service Anti-Patterns
 
@@ -155,6 +159,9 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | Worker not processing jobs | Check `docker ps --filter "name=curatore-worker"` and `./scripts/dev-logs.sh worker`. Three pools: `worker-fast` (extraction/priority), `worker-heavy` (Docling), `worker-integrations` (syncs) |
 | Docling not starting / unhealthy | CPU variant needs ~60s start_period for model loading; GPU needs ~120s. Check `./scripts/dev-logs.sh docling` and ensure `ENABLE_DOCLING_SERVICE=true` in root `.env` |
 | Docling GPU fails | Ensure nvidia-docker runtime is installed and `ENABLE_DOCLING_GPU=true` in root `.env` |
+| Check all service heartbeats | `docker exec curatore-redis redis-cli -n 2 KEYS "curatore:heartbeat:*"` |
+| Check specific service heartbeat | `docker exec curatore-redis redis-cli -n 2 GET "curatore:heartbeat:backend"` |
+| Service shows unhealthy after restart | Heartbeat writers update within 30s. Check freshness thresholds in `heartbeat_service.py` |
 
 ## Clean Reinstall
 

@@ -179,6 +179,102 @@ flowchart TD
    - `side_effects=True` functions placed late in workflows
    - `send_email`/`webhook` guarded with conditionals
 
+## Health Monitoring
+
+Curatore uses a **push-based heartbeat** model for health monitoring. Every service writes its own health status to Redis DB 2 with a timestamp. No service polls another for health — the aggregator simply reads keys and uses timestamp math to determine freshness.
+
+Three monitoring patterns handle three categories of service:
+
+### Pattern 1: Core Infrastructure (Backend-Written)
+
+The backend API process writes heartbeats for services it owns direct connections to: itself, database, redis, and object storage. An asyncio background task probes each every 30s and writes the result.
+
+Workers and beat run in separate containers from the same Docker image. Each writes its own heartbeat via a daemon thread (30s interval).
+
+**Services:** `backend`, `database`, `redis`, `storage`, `worker-fast`, `worker-heavy`, `worker-integrations`, `beat`
+
+### Pattern 2: Extracted Services (Self-Registering)
+
+Each extracted microservice (document-service, playwright-service, mcp-service) runs its own `heartbeat_writer.py` asyncio task. The task writes directly to Redis DB 2 every 30s. The backend does **not** poll these services for health — if the backend is down, extracted services still report as healthy.
+
+**Services:** `extraction_service`, `playwright`, `mcp_gateway`
+**Writer:** `app/services/heartbeat_writer.py` in each service repo
+
+### Pattern 3: External APIs (Event-Driven)
+
+3rd-party APIs (LLM providers, SharePoint/Microsoft Graph) use `ExternalServiceMonitor` — an event-driven pattern that avoids wasteful periodic polling:
+
+1. **Startup** — run initial health check, write result to heartbeat key
+2. **While healthy** — no polling; consumers report errors as they encounter them
+3. **On consumer error** — mark unhealthy in Redis, start recovery polling (every 30s)
+4. **On recovery success** — mark healthy, stop polling
+
+Consumers call `report_error()` / `report_success()` after each API interaction. Recovery polling kicks in only when the error threshold is reached.
+
+**Services:** `llm`, `sharepoint`
+**Monitor:** `app/core/shared/external_service_monitor.py`
+
+### Architecture
+
+```
+Pattern 1: Core Infrastructure             Pattern 1: Workers
+Backend API (asyncio, 30s)                  Daemon threads (30s each)
+  |-- backend                                |-- worker-fast
+  |-- database                               |-- worker-heavy
+  |-- redis                                  |-- worker-integrations
+  |-- storage                                |-- beat
+  v                                          v
+
+Pattern 2: Extracted Services (self-register, 30s each)
+  |-- document-service -> extraction_service
+  |-- playwright-service -> playwright
+  |-- mcp-service -> mcp_gateway
+  v
+
+Pattern 3: External APIs (event-driven)
+  |-- LLM provider -> llm
+  |-- Microsoft Graph -> sharepoint
+  v
+
+  Redis DB 2: curatore:heartbeat:*
+            |
+  Beat task (60s): SCAN + MGET all heartbeats
+            |
+  Aggregate -> curatore:system:status (120s TTL)
+            |
+  Pub/sub on status change -> WebSocket -> frontend StatusBar
+```
+
+### Redis Key Pattern
+
+Keys: `curatore:heartbeat:{service_name}` (no TTL — timestamps are source of truth)
+
+```json
+{
+  "status": "healthy",
+  "last_heartbeat": "2026-02-17T15:42:03.000000Z",
+  "metadata": { "version": "2.0.0" }
+}
+```
+
+### Freshness Thresholds
+
+| Service | Threshold | Pattern | Update Interval |
+|---------|-----------|---------|-----------------|
+| backend, database, redis, storage | 90s | Core infrastructure | 30s |
+| worker-fast, worker-heavy, worker-integrations, beat | 90s | Core infrastructure | 30s |
+| extraction_service, playwright, mcp_gateway | 90s | Self-registering | 30s |
+| llm, sharepoint | 600s | Event-driven | On demand + 30s recovery |
+
+### Frontend Consumption
+
+The frontend is display-only — it shows whatever the backend aggregator reports:
+
+- **StatusBar** (bottom bar): receives real-time updates via WebSocket pub/sub
+- **InfrastructureHealthPanel** (admin page): reads cached heartbeat data via `/health/comprehensive` (< 10 ms)
+- **Refresh button**: triggers live HTTP checks via `/health/comprehensive?live=true` (5-20s, bypasses heartbeats)
+- **Core vs all toggle**: core components (backend, database, redis, workers) always visible; extracted services, LLM, SharePoint shown via "Show All"
+
 ## Related Documentation
 
 - [Documentation Index](INDEX.md) — Master map of all docs across all repos
