@@ -204,18 +204,36 @@ The Document Service connects to Docling via its own `DOCLING_SERVICE_URL` envir
 
 ### Concurrency & Resource Limits
 
-Docling is memory-intensive (OCR + layout models). The document service limits concurrent
-Docling requests to prevent OOM kills:
+Concurrency is managed at two levels: **Celery worker pools** in the backend and a **Docling semaphore** in the Document Service.
+
+#### Worker Pool Routing (Backend)
+
+The backend routes extraction tasks to separate Celery queues consumed by dedicated worker pools. This prevents slow Docling-bound extractions from blocking fast ones:
+
+| Worker Pool | Celery Queue | Concurrency Env Var | Default | Handles |
+|-------------|-------------|---------------------|---------|---------|
+| **worker-fast** | `extraction` | `CELERY_CONCURRENCY_FAST` | 6 | Text files, small PDFs, small Office docs |
+| **worker-heavy** | `extraction_heavy` | `CELERY_CONCURRENCY_HEAVY` | 2 | Large PDFs (>1MB), large Office files (>5MB) |
+
+Routing is a pre-submission heuristic based on file extension and size — see [Queue System: Extraction Queue Routing](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/QUEUE_SYSTEM.md) for the full routing table.
+
+#### Docling Semaphore (Document Service)
 
 | Setting | Default | Where | Purpose |
 |---------|---------|-------|---------|
 | `DOCLING_MAX_CONCURRENT` | 2 | Document Service | Max simultaneous Docling extractions |
-| `CELERY_CONCURRENCY` | 6 | Backend Worker | Parallel Celery task processes |
 
-**How it works:** An asyncio semaphore in the document service gates Docling HTTP calls.
+An asyncio semaphore in the Document Service gates Docling HTTP calls.
 Non-Docling extractions (fast_pdf, markitdown) are unaffected and flow through immediately.
 
 **Tuning:** CPU containers (8GB) → 2 concurrent. GPU containers (16GB) → 3-4 concurrent.
+
+#### Docling Performance Optimization
+
+The Docling Docker container includes performance tuning:
+- **Model cache volume**: `docling_model_cache` persists ~1-2GB of model weights across container restarts, eliminating 60-120s cold starts
+- **Thread limits**: `OMP_NUM_THREADS=4` and `MKL_NUM_THREADS=4` prevent CPU contention in multi-worker environments
+- **GPU support**: `CUDA_VISIBLE_DEVICES=0` for the GPU variant (requires nvidia-docker runtime)
 
 ### Docker Compose
 
@@ -247,8 +265,8 @@ curl http://localhost:8010/api/v1/system/health
 curl http://localhost:5151/health
 # {"status":"ok"}
 
-# Check fast_pdf availability (PyMuPDF in worker)
-docker exec curatore-worker python -c "import fitz; print(f'PyMuPDF {fitz.version}')"
+# Check fast_pdf availability (PyMuPDF in worker-fast)
+docker exec curatore-worker-fast python -c "import fitz; print(f'PyMuPDF {fitz.version}')"
 ```
 
 ## Troubleshooting

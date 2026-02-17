@@ -55,7 +55,9 @@ Documents enter Curatore through multiple sources:
 1. File uploaded to MinIO (`curatore-original` bucket)
 2. `Asset` record created with `status=pending`
 3. `Run` record created with `run_type=extraction`
-4. Extraction task queued to Celery
+4. `ExtractionQueueService` routes task to the appropriate Celery queue:
+   - **`extraction` queue** (worker-fast): Text files, small PDFs (<=1MB), small Office docs (<=5MB)
+   - **`extraction_heavy` queue** (worker-heavy): Large PDFs (>1MB), large Office files (>5MB) — likely to need Docling
 
 ### 2. Extraction (via Document Service)
 

@@ -433,11 +433,36 @@ Configure Celery background job processing.
 - `queue.broker_url`: Redis URL for broker (default: redis://redis:6379/0)
 - `queue.result_backend`: Redis URL for results (default: redis://redis:6379/1)
 - `queue.default_queue`: Default queue name (default: processing)
-- `queue.worker_concurrency`: Worker concurrency (default: 6)
 - `queue.task_timeout`: Task timeout in seconds (default: 3600)
 
-**Environment Variables:**
-- `CELERY_CONCURRENCY`: Override worker concurrency at Docker Compose level (default: 6). Higher values ensure non-Docling work isn't blocked when Docling extractions are queued.
+**Worker Pool Concurrency (Environment Variables):**
+
+Curatore uses three specialized worker pools. Each pool has independent concurrency:
+
+| Variable | Default | Worker Pool | Description |
+|----------|---------|-------------|-------------|
+| `CELERY_CONCURRENCY_FAST` | `6` | worker-fast | User uploads, quick extractions (PyMuPDF/MarkItDown), maintenance |
+| `CELERY_CONCURRENCY_HEAVY` | `2` | worker-heavy | Complex extractions routed to Docling (OCR/layout). Keep low to match Docling throughput. |
+| `CELERY_CONCURRENCY_INTEGRATIONS` | `4` | worker-integrations | External API sync jobs (SharePoint, SAM.gov, Salesforce, web scraping, forecasts) |
+
+See [Queue System](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/QUEUE_SYSTEM.md) for full queue architecture, worker pool details, and extraction routing.
+
+**Per-Queue Overrides (config.yml):**
+
+Individual queue types can override their max concurrent and timeout settings:
+
+```yaml
+queues:
+  extraction:
+    max_concurrent: 10
+    timeout_seconds: 600
+  extraction_heavy:
+    max_concurrent: 3
+    timeout_seconds: 900
+  sam:
+    max_concurrent: 2
+    timeout_seconds: 1800
+```
 
 **Example:**
 ```yaml
@@ -445,7 +470,6 @@ queue:
   broker_url: redis://redis:6379/0
   result_backend: redis://redis:6379/1
   default_queue: processing
-  worker_concurrency: 6
 ```
 
 ---

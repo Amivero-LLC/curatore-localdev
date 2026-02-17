@@ -22,7 +22,17 @@ case "${SERVICE}" in
     docker logs -f curatore-backend
     ;;
   worker)
-    docker logs -f curatore-worker
+    # Show all worker pool logs combined
+    docker logs -f curatore-worker-fast curatore-worker-heavy curatore-worker-integrations 2>/dev/null
+    ;;
+  worker-fast)
+    docker logs -f curatore-worker-fast
+    ;;
+  worker-heavy)
+    docker logs -f curatore-worker-heavy
+    ;;
+  worker-integrations)
+    docker logs -f curatore-worker-integrations
     ;;
   beat)
     docker logs -f curatore-beat
@@ -52,10 +62,10 @@ case "${SERVICE}" in
     docker logs -f curatore-docling
     ;;
   all)
-    docker logs -f curatore-backend curatore-worker curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp curatore-docling 2>/dev/null
+    docker logs -f curatore-backend curatore-worker-fast curatore-worker-heavy curatore-worker-integrations curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp curatore-docling 2>/dev/null
     ;;
   *)
-    echo "Usage: dev-logs.sh [backend|worker|beat|frontend|mcp|document-service|playwright|docling|minio|redis|postgres|all]"
+    echo "Usage: dev-logs.sh [backend|worker|worker-fast|worker-heavy|worker-integrations|beat|frontend|mcp|document-service|playwright|docling|minio|redis|postgres|all]"
     echo ""
     echo "Without arguments, shows backend logs."
     echo ""

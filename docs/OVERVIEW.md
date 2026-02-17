@@ -16,7 +16,9 @@ graph TB
         Frontend["frontend\nNext.js 15\n:3000"]
         Backend["backend\nFastAPI\n:8000"]
         MCP["mcp\nMCP Gateway\n:8020"]
-        Worker["worker\nCelery"]
+        WorkerFast["worker-fast\nCelery\n(extraction, priority, maintenance)"]
+        WorkerHeavy["worker-heavy\nCelery\n(extraction_heavy / Docling)"]
+        WorkerInt["worker-integrations\nCelery\n(SAM, SharePoint, scrape, forecast)"]
         Beat["beat\nCelery Beat"]
 
         DocService["document-service\nExtraction\n:8010"]
@@ -39,10 +41,18 @@ graph TB
     Backend --> DocService
     Backend --> Playwright
 
-    Worker --> Postgres
-    Worker --> Redis
-    Worker --> MinIO
-    Worker --> DocService
+    WorkerFast --> Postgres
+    WorkerFast --> Redis
+    WorkerFast --> MinIO
+    WorkerFast --> DocService
+    WorkerHeavy --> Postgres
+    WorkerHeavy --> Redis
+    WorkerHeavy --> MinIO
+    WorkerHeavy --> DocService
+    WorkerInt --> Postgres
+    WorkerInt --> Redis
+    WorkerInt --> MinIO
+    WorkerInt --> DocService
     Beat --> Redis
 
     DocService -.-> Docling["docling\nOCR + Layout\n:5001"]
@@ -53,8 +63,10 @@ graph TB
 | Service | Owns | Delegates To |
 |---------|------|-------------|
 | **backend** | API, auth, database schema, CWR runtime, search | document-service (extraction), playwright (rendering) |
-| **worker** | Background job execution (extraction, sync, import) | document-service, external APIs |
-| **beat** | Cron scheduling (maintenance, reindex) | worker (via Redis) |
+| **worker-fast** | Fast extraction (PyMuPDF/MarkItDown), priority tasks, maintenance | document-service |
+| **worker-heavy** | Complex extraction (Docling OCR/layout) | document-service → docling |
+| **worker-integrations** | External API sync (SAM, SharePoint, Salesforce, scrape, forecast) | document-service, external APIs |
+| **beat** | Cron scheduling (maintenance, reindex) | workers (via Redis) |
 | **frontend** | UI, client-side routing | backend (API) |
 | **mcp** | AI tool protocol, function exposure | backend (delegated auth + API) |
 | **document-service** | Triage, extraction (fast_pdf, markitdown) | docling (complex OCR/layout) |
