@@ -116,8 +116,26 @@ cd "${ROOT}/curatore-mcp-service"
 docker compose up -d
 echo ""
 
-# ---- 7. Initialize storage buckets ----
-echo "7. Initializing storage buckets..."
+# ---- 7. Wait for frontend readiness ----
+echo "7. Waiting for frontend to compile..."
+FRONTEND_READY=false
+for i in $(seq 1 60); do
+  if curl -sf -o /dev/null http://localhost:3000 2>/dev/null; then
+    FRONTEND_READY=true
+    echo "   Frontend ready (${i}s)"
+    break
+  fi
+  sleep 5
+done
+
+if [[ "$FRONTEND_READY" == "false" ]]; then
+  echo "   WARNING: Frontend did not become ready within 300s."
+  echo "   It may still be compiling — check ./scripts/dev-logs.sh frontend"
+fi
+echo ""
+
+# ---- 8. Initialize storage buckets ----
+echo "8. Initializing storage buckets..."
 echo "   Waiting for backend readiness..."
 READY=false
 for i in $(seq 1 60); do
