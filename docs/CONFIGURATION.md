@@ -311,6 +311,7 @@ Docling provides OCR and layout analysis for complex documents. It runs as a pro
 | `DOCLING_SERVICE_URL` | `http://docling:5001` | *(empty)* | Document-service uses this to proxy complex extractions to Docling |
 | `DOCLING_TIMEOUT` | `300` | `300` | Request timeout in seconds |
 | `DOCLING_VERIFY_SSL` | `false` | `false` | SSL verification for Docling connection |
+| `DOCLING_MAX_CONCURRENT` | `2` | `2` | Max simultaneous Docling extractions (prevents OOM) |
 | `DOCLING_SERVE_ENABLE_UI` | `1` | `0` | Mapped from `ENABLE_DOCLING_UI` boolean |
 
 When `DOCLING_SERVICE_URL` is empty, the document-service disables Docling routing and falls back to `fast_pdf` (PyMuPDF) for PDFs and `markitdown` for Office documents.
@@ -432,8 +433,11 @@ Configure Celery background job processing.
 - `queue.broker_url`: Redis URL for broker (default: redis://redis:6379/0)
 - `queue.result_backend`: Redis URL for results (default: redis://redis:6379/1)
 - `queue.default_queue`: Default queue name (default: processing)
-- `queue.worker_concurrency`: Worker concurrency (default: 4)
+- `queue.worker_concurrency`: Worker concurrency (default: 6)
 - `queue.task_timeout`: Task timeout in seconds (default: 3600)
+
+**Environment Variables:**
+- `CELERY_CONCURRENCY`: Override worker concurrency at Docker Compose level (default: 6). Higher values ensure non-Docling work isn't blocked when Docling extractions are queued.
 
 **Example:**
 ```yaml
@@ -441,7 +445,7 @@ queue:
   broker_url: redis://redis:6379/0
   result_backend: redis://redis:6379/1
   default_queue: processing
-  worker_concurrency: 4
+  worker_concurrency: 6
 ```
 
 ---

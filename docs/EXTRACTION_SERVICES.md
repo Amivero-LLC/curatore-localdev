@@ -202,6 +202,21 @@ extraction:
 
 The Document Service connects to Docling via its own `DOCLING_SERVICE_URL` environment variable. The backend does not need to know about individual engines.
 
+### Concurrency & Resource Limits
+
+Docling is memory-intensive (OCR + layout models). The document service limits concurrent
+Docling requests to prevent OOM kills:
+
+| Setting | Default | Where | Purpose |
+|---------|---------|-------|---------|
+| `DOCLING_MAX_CONCURRENT` | 2 | Document Service | Max simultaneous Docling extractions |
+| `CELERY_CONCURRENCY` | 6 | Backend Worker | Parallel Celery task processes |
+
+**How it works:** An asyncio semaphore in the document service gates Docling HTTP calls.
+Non-Docling extractions (fast_pdf, markitdown) are unaffected and flow through immediately.
+
+**Tuning:** CPU containers (8GB) → 2 concurrent. GPU containers (16GB) → 3-4 concurrent.
+
 ### Docker Compose
 
 Docling runs as a profiled service inside the **document-service** compose file (not the backend). Use the localdev scripts or compose directly:
