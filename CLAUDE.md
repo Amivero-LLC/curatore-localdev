@@ -10,7 +10,7 @@ cd curatore-localdev
 ./scripts/bootstrap.sh
 ```
 
-The bootstrap script prompts for API keys, generates configs, starts all services, and seeds the admin user. See [`.env.example`](.env.example) for all configurable variables.
+The bootstrap script prompts for API keys, generates configs, and starts all services. On first visit to http://localhost:3000, a setup wizard guides you through creating the initial admin account. See [`.env.example`](.env.example) for all configurable variables.
 
 To regenerate service configs after editing `.env`:
 ```bash
@@ -32,8 +32,8 @@ To regenerate service configs after editing `.env`:
 ./scripts/dev-check.sh                 # Full quality check (lint + security + tests)
 ./scripts/dev-check.sh --lint-only     # Linting only
 ./scripts/dev-check.sh --service=backend  # Single service only
-docker exec curatore-backend python -m app.core.commands.seed --create-admin  # Seed admin
 docker exec curatore-backend alembic upgrade head  # Run migrations
+docker exec curatore-backend python -m app.core.commands.seed --create-admin  # CLI admin seed (alternative to setup wizard)
 ```
 
 ## Platform Architecture
@@ -162,5 +162,6 @@ docker images --format "{{.Repository}} {{.ID}}" | grep curatore | awk '{print $
 docker volume ls --format "{{.Name}}" | grep curatore | xargs -r docker volume rm -f
 docker network rm curatore-network
 ./scripts/dev-up.sh --with-postgres
-docker exec curatore-backend python -m app.core.commands.seed --create-admin
+# Open http://localhost:3000 to create admin via setup wizard
+# Or use CLI: docker exec curatore-backend python -m app.core.commands.seed --create-admin
 ```

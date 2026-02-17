@@ -237,41 +237,14 @@ else
   "${SCRIPT_DIR}/dev-up.sh" --with-postgres
   echo ""
 
-  # --------------------------------------------------------------------------
-  # 7. Seed admin user
-  # --------------------------------------------------------------------------
-  echo "7. Seeding admin user..."
-  ADMIN_EMAIL="$(env_get ADMIN_EMAIL "admin@example.com")"
-  ADMIN_PASSWORD="$(env_get ADMIN_PASSWORD "changeme")"
-
-  # Wait for backend to be fully ready (migrations complete)
-  echo "   Waiting for backend to be ready..."
-  READY=false
-  for i in $(seq 1 30); do
-    if curl -sf http://localhost:8000/api/v1/admin/system/health/ready >/dev/null 2>&1; then
-      READY=true
-      break
-    fi
-    sleep 5
-  done
-
-  if [[ "$READY" == "true" ]]; then
-    docker exec curatore-backend python -m app.core.commands.seed --create-admin 2>/dev/null && \
-      echo "   Admin user seeded." || \
-      echo "   Admin user may already exist (seed returned non-zero)."
-  else
-    echo "   WARNING: Backend not ready after 150s. Seed manually:"
-    echo "   docker exec curatore-backend python -m app.core.commands.seed --create-admin"
-  fi
+  echo "7. Services starting..."
+  echo "   Open http://localhost:3000 to create your admin account via the setup wizard."
   echo ""
 fi
 
 # --------------------------------------------------------------------------
 # Summary
 # --------------------------------------------------------------------------
-ADMIN_EMAIL="$(env_get ADMIN_EMAIL "admin@example.com")"
-ADMIN_PASSWORD="$(env_get ADMIN_PASSWORD "changeme")"
-
 echo "============================================"
 echo "  Bootstrap Complete!"
 echo "============================================"
@@ -287,9 +260,8 @@ if [[ "$SKIP_START" == "false" ]]; then
   echo "    MinIO Console:    http://localhost:9001"
   echo ""
 fi
-echo "  Admin Login:"
-echo "    Email:    ${ADMIN_EMAIL}"
-echo "    Password: ${ADMIN_PASSWORD}"
+echo "  Getting Started:"
+echo "    Open http://localhost:3000 to create your admin account."
 echo ""
 echo "  Config files:"
 echo "    Root:     .env (edit this, then run ./scripts/generate-env.sh)"

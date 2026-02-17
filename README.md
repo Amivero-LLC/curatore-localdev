@@ -26,15 +26,17 @@ Bootstrap does everything automatically:
 3. Auto-generates secrets (JWT key, service API keys, database passwords)
 4. Distributes config to each service via `generate-env.sh`
 5. Starts all Docker services
-6. Seeds the admin user
 
-When it finishes, you'll see URLs and login credentials.
+When it finishes, open **http://localhost:3000** — a setup wizard will guide you through creating your admin account.
 
-### Default login
+### First-time setup
 
-- **URL:** http://localhost:3000
-- **Email:** `admin@example.com`
-- **Password:** `changeme`
+On a fresh install with no admin user, the frontend shows an interactive setup wizard at `/setup` where you create the initial administrator account. Once completed, this page is permanently inaccessible.
+
+**Alternative (headless/CI):** You can also create the admin via CLI:
+```bash
+docker exec curatore-backend python -m app.core.commands.seed --create-admin
+```
 
 ## Manual Setup
 
@@ -55,8 +57,8 @@ cp .env.example .env
 # 4. Start all services
 ./scripts/dev-up.sh --with-postgres
 
-# 5. Seed admin user (after backend is healthy)
-docker exec curatore-backend python -m app.core.commands.seed --create-admin
+# 5. Open http://localhost:3000 to create admin via setup wizard
+# Or use CLI: docker exec curatore-backend python -m app.core.commands.seed --create-admin
 ```
 
 ## Architecture
@@ -175,10 +177,10 @@ Defaults work for local development. See [`.env.example`](.env.example) for full
 | `LOG_LEVEL` | `INFO` | Python log level (DEBUG, INFO, WARNING, ERROR) |
 | `ENABLE_AUTH` | `true` | Set `false` to bypass JWT auth (local dev only) |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed browser origins (JSON array) |
-| `ADMIN_EMAIL` | `admin@example.com` | Seeded admin user email |
-| `ADMIN_PASSWORD` | `changeme` | Seeded admin user password |
-| `ADMIN_USERNAME` | `admin` | Seeded admin username |
-| `ADMIN_FULL_NAME` | `Admin User` | Seeded admin display name |
+| `ADMIN_EMAIL` | `admin@example.com` | CLI seed admin email (only used by `seed --create-admin`) |
+| `ADMIN_PASSWORD` | `changeme` | CLI seed admin password (only used by `seed --create-admin`) |
+| `ADMIN_USERNAME` | `admin` | CLI seed admin username (only used by `seed --create-admin`) |
+| `ADMIN_FULL_NAME` | `Admin User` | CLI seed admin display name (only used by `seed --create-admin`) |
 | `DEFAULT_ORG_NAME` | `Default Organization` | Default organization name |
 | `DEFAULT_ORG_SLUG` | `default` | Default organization URL slug |
 | `POSTGRES_DB` | `curatore` | PostgreSQL database name |
@@ -250,11 +252,13 @@ docker exec curatore-backend alembic upgrade head
 docker exec curatore-backend alembic revision --autogenerate -m "description"
 ```
 
-### Re-seed admin user
+### Create admin user (CLI alternative to setup wizard)
 
 ```bash
 docker exec curatore-backend python -m app.core.commands.seed --create-admin
 ```
+
+This only works when no admin user exists yet. After the first admin is created (via setup wizard or CLI), this command is a no-op.
 
 ### View worker queue health
 
@@ -406,7 +410,8 @@ docker images --format "{{.Repository}} {{.ID}}" | grep curatore | awk '{print $
 docker volume ls --format "{{.Name}}" | grep curatore | xargs -r docker volume rm -f
 docker network rm curatore-network
 ./scripts/dev-up.sh --with-postgres
-docker exec curatore-backend python -m app.core.commands.seed --create-admin
+# Open http://localhost:3000 to create admin via setup wizard
+# Or use CLI: docker exec curatore-backend python -m app.core.commands.seed --create-admin
 ```
 
 ## Troubleshooting

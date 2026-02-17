@@ -29,7 +29,7 @@ Settings that change per deployment environment. These answer "where does this r
 | **Docker compose profiles** | `ENABLE_POSTGRES_SERVICE`, `ENABLE_DOCLING_SERVICE`, `ENABLE_TIKA_SERVICE` |
 | **Frontend build-time URLs** | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_EXTRACTION_URL` |
 | **Dev toggles** | `DEBUG`, `CORS_ORIGINS` |
-| **One-time seed data** | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEFAULT_ORG_SLUG` |
+| **CLI seed data (fallback)** | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEFAULT_ORG_SLUG` (only used by `seed --create-admin` CLI; prefer the setup wizard at `/setup`) |
 
 ### `config.yml` — Application Behavior
 
