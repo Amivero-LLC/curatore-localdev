@@ -69,7 +69,7 @@ for svc in curatore-mcp-service curatore-frontend curatore-playwright-service cu
     if [[ "$svc" == "curatore-backend" ]]; then
       cd "${dir}" && docker compose --profile postgres down 2>/dev/null || docker compose down 2>/dev/null || true
     elif [[ "$svc" == "curatore-document-service" ]]; then
-      cd "${dir}" && docker compose --profile docling --profile docling-gpu down 2>/dev/null || docker compose down 2>/dev/null || true
+      cd "${dir}" && docker compose down 2>/dev/null || true
     else
       cd "${dir}" && docker compose down 2>/dev/null || true
     fi

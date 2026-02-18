@@ -33,10 +33,10 @@ The backend is a thin orchestrator:
 The Document Service (`curatore-document-service` repo, port 8010) handles all extraction internally:
 
 - **Triage**: Analyzes documents to select the optimal engine
-- **Engines**: `fast_pdf` (PyMuPDF), `markitdown` (MarkItDown + LibreOffice), `docling` (IBM Docling for OCR/layout)
+- **Engines**: `fast_pdf` (PyMuPDF), `markitdown` (MarkItDown + LibreOffice), `pymupdf4llm` (PyMuPDF4LLM + Tesseract OCR)
 - **API**: `POST /api/v1/extract`, `GET /api/v1/system/health`, `GET /api/v1/system/capabilities`, `GET /api/v1/system/supported-formats`
 
-The Document Service connects to Docling (port 5001) when complex extraction is needed. The backend never communicates with Docling directly.
+The Document Service uses pymupdf4llm (a local Python library with Tesseract OCR) for complex extraction. No external HTTP service is required. The backend never communicates with extraction engines directly.
 
 ## Extraction Flow
 
@@ -57,7 +57,7 @@ Documents enter Curatore through multiple sources:
 3. `Run` record created with `run_type=extraction`
 4. `ExtractionQueueService` routes task to the appropriate Celery queue:
    - **`extraction` queue** (worker-fast): Text files, small PDFs (<=1MB), small Office docs (<=5MB)
-   - **`extraction_heavy` queue** (worker-heavy): Large PDFs (>1MB), large Office files (>5MB) — likely to need Docling
+   - **`extraction_heavy` queue** (worker-heavy): Large PDFs (>1MB), large Office files (>5MB) — likely to need pymupdf4llm
 
 ### 2. Extraction (via Document Service)
 
@@ -68,7 +68,7 @@ The `ExtractionOrchestrator` sends the file to the Document Service:
 3. Document Service performs triage internally (engine selection)
 4. Document Service extracts content and returns JSON with:
    - `content_markdown` — extracted text in Markdown
-   - `method` — engine used (`fast_pdf`, `markitdown`, `docling`)
+   - `method` — engine used (`fast_pdf`, `markitdown`, `pymupdf4llm`)
    - `triage` block — triage metadata (engine, needs_ocr, complexity, duration_ms)
 5. Backend uploads Markdown to `curatore-processed` bucket
 6. Backend updates `ExtractionResult` with triage fields
@@ -95,10 +95,10 @@ The Document Service uses three extraction engines internally:
 - Document conversion for Office files, text files, and emails
 - Supports: `.docx`, `.doc`, `.pptx`, `.ppt`, `.xlsx`, `.xls`, `.xlsb`, `.txt`, `.md`, `.csv`, `.msg`, `.eml`, `.html`, `.htm`, `.xml`, `.json`
 
-### 3. docling (IBM Docling)
+### 3. pymupdf4llm (PyMuPDF4LLM)
 - Advanced extraction for complex documents requiring OCR or layout analysis
 - Used for scanned PDFs, complex layouts, large Office files
-- Connected via `DOCLING_SERVICE_URL` in the Document Service
+- Local Python library with Tesseract OCR support; ARM-native, no external HTTP service required
 
 ## Extraction Result Fields
 
@@ -111,7 +111,7 @@ ExtractionResult {
     extraction_tier: "basic" | "enhanced"
 
     # Triage fields (from Document Service response)
-    triage_engine: "fast_pdf" | "markitdown" | "docling"
+    triage_engine: "fast_pdf" | "markitdown" | "pymupdf4llm"
     triage_needs_ocr: bool
     triage_needs_layout: bool
     triage_complexity: "low" | "medium" | "high"
@@ -125,7 +125,7 @@ ExtractionResult {
 |--------------|-----------------|
 | `fast_pdf` | `basic` |
 | `markitdown` | `basic` |
-| `docling` | `enhanced` |
+| `pymupdf4llm` | `enhanced` |
 
 ## Configuration
 
@@ -175,7 +175,7 @@ curl http://localhost:8000/api/v1/admin/system/health/comprehensive
 # Document Service direct
 curl http://localhost:8010/api/v1/system/health
 
-# Document Service capabilities (shows docling availability)
+# Document Service capabilities (shows pymupdf4llm availability)
 curl http://localhost:8010/api/v1/system/capabilities
 ```
 
@@ -193,7 +193,7 @@ curl http://localhost:8010/api/v1/system/capabilities
   "extraction": {
     "status": "completed",
     "extraction_tier": "enhanced",
-    "triage_engine": "docling",
+    "triage_engine": "pymupdf4llm",
     "triage_needs_ocr": true,
     "triage_complexity": "high",
     "triage_duration_ms": 45

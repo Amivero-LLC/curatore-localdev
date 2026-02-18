@@ -5,9 +5,8 @@
 # Usage:
 #   ./scripts/dev-logs.sh              # All backend logs
 #   ./scripts/dev-logs.sh backend      # Backend API only
-#   ./scripts/dev-logs.sh worker       # Celery worker only
+#   ./scripts/dev-logs.sh worker       # All worker logs (documents + general)
 #   ./scripts/dev-logs.sh frontend     # Frontend only
-#   ./scripts/dev-logs.sh docling      # Docling engine
 #   ./scripts/dev-logs.sh all          # All containers
 # ============================================================================
 set -euo pipefail
@@ -23,16 +22,13 @@ case "${SERVICE}" in
     ;;
   worker)
     # Show all worker pool logs combined
-    docker logs -f curatore-worker-fast curatore-worker-heavy curatore-worker-integrations 2>/dev/null
+    docker logs -f curatore-worker-documents curatore-worker-general 2>/dev/null
     ;;
-  worker-fast)
-    docker logs -f curatore-worker-fast
+  worker-documents)
+    docker logs -f curatore-worker-documents
     ;;
-  worker-heavy)
-    docker logs -f curatore-worker-heavy
-    ;;
-  worker-integrations)
-    docker logs -f curatore-worker-integrations
+  worker-general)
+    docker logs -f curatore-worker-general
     ;;
   beat)
     docker logs -f curatore-beat
@@ -58,14 +54,11 @@ case "${SERVICE}" in
   postgres)
     docker logs -f curatore-postgres
     ;;
-  docling)
-    docker logs -f curatore-docling
-    ;;
   all)
-    docker logs -f curatore-backend curatore-worker-fast curatore-worker-heavy curatore-worker-integrations curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp curatore-docling 2>/dev/null
+    docker logs -f curatore-backend curatore-worker-documents curatore-worker-general curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp 2>/dev/null
     ;;
   *)
-    echo "Usage: dev-logs.sh [backend|worker|worker-fast|worker-heavy|worker-integrations|beat|frontend|mcp|document-service|playwright|docling|minio|redis|postgres|all]"
+    echo "Usage: dev-logs.sh [backend|worker|worker-documents|worker-general|beat|frontend|mcp|document-service|playwright|minio|redis|postgres|all]"
     echo ""
     echo "Without arguments, shows backend logs."
     echo ""

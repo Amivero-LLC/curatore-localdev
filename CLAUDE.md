@@ -21,15 +21,11 @@ To regenerate service configs after editing `.env`:
 
 ```bash
 ./scripts/dev-up.sh --with-postgres    # Start everything
-./scripts/dev-up.sh --with-docling     # Include Docling engine (CPU)
-./scripts/dev-up.sh --with-docling-gpu # Include Docling engine (GPU)
 ./scripts/dev-down.sh                  # Stop everything
 ./scripts/dev-logs.sh                  # Backend logs
-./scripts/dev-logs.sh worker           # All worker logs (fast + heavy + integrations)
-./scripts/dev-logs.sh worker-fast      # Fast extraction worker logs
-./scripts/dev-logs.sh worker-heavy     # Heavy extraction (Docling) worker logs
-./scripts/dev-logs.sh worker-integrations # Integration sync worker logs
-./scripts/dev-logs.sh docling          # Docling logs
+./scripts/dev-logs.sh worker           # All worker logs (documents + general)
+./scripts/dev-logs.sh worker-documents # Document extraction worker logs
+./scripts/dev-logs.sh worker-general   # Integration sync worker logs
 ./scripts/dev-logs.sh all              # All logs
 ./scripts/dev-status.sh               # Service status
 ./scripts/dev-check.sh                 # Full quality check (lint + security + tests)
@@ -68,7 +64,6 @@ All services share `curatore-network` (external Docker network, created by `dev-
              worker ──┘     ├──── minio (:9000/:9001)            │
              beat ──────────┤                                    │
                             ├──── document-service (:8010)       │
-                            │        └──── docling (:5001/:5151) │
                             └──── playwright (:8011)             │
                     └─────────────────────────────────────────────┘
 ```
@@ -84,7 +79,6 @@ Services reference each other by Docker container name, **not** `localhost`:
 | `redis` | `redis:6379` | Celery broker + cache |
 | `minio` | `minio:9000` | Object storage |
 | `document-service` | `http://document-service:8010` | Extraction |
-| `docling` | `http://docling:5001` | Docling OCR/layout engine |
 | `playwright` | `http://playwright:8011` | Rendering |
 | `mcp` | `http://mcp:8020` | AI gateway |
 | `frontend` | `http://frontend:3000` | Web UI |
@@ -95,7 +89,7 @@ Services reference each other by Docker container name, **not** `localhost`:
 2. **Config split** — `.env` = secrets + Docker infrastructure; `config.yml` = application behavior + external service discovery. See [backend CLAUDE.md](curatore-backend/CLAUDE.md)
 3. **Inter-service URLs** — Always use Docker container names (e.g., `http://document-service:8010`), never `localhost`. `localhost:PORT` is for browser/developer access only
 4. **Migration parity** — When adding Alembic migrations that INSERT reference data or create VIEWs, also update `prestart.py` `_create_all_tables()` for fresh install parity
-5. **Five containers, one image** — Backend, worker-fast, worker-heavy, worker-integrations, and beat all run from the same Docker image
+5. **Four containers, one image** — Backend, worker-documents, worker-general, and beat all run from the same Docker image
 6. **Service auth pattern** — All extracted services use optional `SERVICE_API_KEY`: empty = dev mode, set = validates `Authorization: Bearer <key>`
 7. **Hot reload** — Python services mount `./app:/app/app` + `uvicorn --reload`; frontend mounts `.:/app` + `npm run dev`. No rebuild needed for source changes.
 8. **Push-based health monitoring** — Three patterns, zero inter-service polling. See [Health Monitoring](docs/OVERVIEW.md#health-monitoring) for full details.
@@ -156,9 +150,7 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | Backend won't start (dependency timeout) | Check `docker ps --filter "name=curatore-"` for unhealthy containers |
 | `relation does not exist` on existing DB | `docker exec curatore-backend alembic upgrade head` |
 | Frontend can't reach backend | `NEXT_PUBLIC_API_URL` must be `http://localhost:8000` (browser-side URL) |
-| Worker not processing jobs | Check `docker ps --filter "name=curatore-worker"` and `./scripts/dev-logs.sh worker`. Three pools: `worker-fast` (extraction/priority), `worker-heavy` (Docling), `worker-integrations` (syncs) |
-| Docling not starting / unhealthy | CPU variant needs ~60s start_period for model loading; GPU needs ~120s. Check `./scripts/dev-logs.sh docling` and ensure `ENABLE_DOCLING_SERVICE=true` in root `.env` |
-| Docling GPU fails | Ensure nvidia-docker runtime is installed and `ENABLE_DOCLING_GPU=true` in root `.env` |
+| Worker not processing jobs | Check `docker ps --filter "name=curatore-worker"` and `./scripts/dev-logs.sh worker`. Two pools: `worker-documents` (extraction/priority/maintenance), `worker-general` (syncs) |
 | Check all service heartbeats | `docker exec curatore-redis redis-cli -n 2 KEYS "curatore:heartbeat:*"` |
 | Check specific service heartbeat | `docker exec curatore-redis redis-cli -n 2 GET "curatore:heartbeat:backend"` |
 | Service shows unhealthy after restart | Heartbeat writers update within 30s. Check freshness thresholds in `heartbeat_service.py` |

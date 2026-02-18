@@ -11,26 +11,26 @@ flowchart TD
     Upload["Document Upload"] --> Triage["Triage\n(< 100ms)"]
     Triage --> FastPDF["fast_pdf\n(PyMuPDF)"]
     Triage --> DocSvc["document-service\n(MarkItDown)"]
-    Triage --> Docling["docling\n(IBM Docling)"]
+    Triage --> PyMuPDF4LLM["pymupdf4llm\n(Tesseract OCR)"]
     Triage --> Unsupported["unsupported\n(reject)"]
     FastPDF --> Output["Markdown Output"]
     DocSvc --> Output
-    Docling --> Output
+    PyMuPDF4LLM --> Output
 ```
 
 ## Quick Comparison
 
-| Feature | fast_pdf | document-service | docling |
-|---------|----------|-----------------|---------|
-| **Location** | Local (worker) | Container (8010) | External (5001) |
-| **Technology** | PyMuPDF | MarkItDown + LibreOffice | IBM Docling Serve |
+| Feature | fast_pdf | document-service | pymupdf4llm |
+|---------|----------|-----------------|-------------|
+| **Location** | Local (worker) | Container (8010) | Local (worker) |
+| **Technology** | PyMuPDF | MarkItDown + LibreOffice | pymupdf4llm + Tesseract OCR |
 | **PDF (simple)** | Yes (fast) | No | Yes |
-| **PDF (scanned)** | No | No | Yes (OCR) |
-| **Office files** | No | Yes | Yes |
+| **PDF (scanned)** | No | No | Yes (OCR via Tesseract) |
+| **Office files** | No | Yes | No |
 | **Text/HTML/Email** | No | Yes | No |
 | **Table Extraction** | Basic | Basic | Advanced |
-| **Speed** | Very Fast | Fast | Slower |
-| **Resource Usage** | Low | Low | High |
+| **Speed** | Very Fast | Fast | Moderate |
+| **Resource Usage** | Low | Low | Low-Moderate |
 
 ## Extraction Engines
 
@@ -106,53 +106,28 @@ curl -X POST "http://localhost:8010/api/v1/extract" \
 }
 ```
 
-### 3. docling (IBM Docling)
+### 3. pymupdf4llm
 
-**Purpose:** Advanced extraction for complex documents requiring OCR or layout analysis.
+**Purpose:** Advanced PDF extraction for complex documents requiring OCR or layout analysis.
 
-**Technology:** IBM Docling with optional OCR engines (EasyOCR, Tesseract)
-
-**Port:** 5001 (external), 5151 (Docker)
+**Technology:** pymupdf4llm (local Python library) with Tesseract OCR. Runs directly in the Celery worker -- no external service needed.
 
 **Supported Extensions:**
 | Extension | Use Case |
 |-----------|----------|
 | `.pdf` | Scanned PDFs, complex layouts, tables |
-| `.docx`, `.pptx`, `.xlsx` | Large/complex documents (>= 5MB) |
-| `.doc`, `.ppt`, `.xls` | Large legacy Office files |
 
 **When Used by Triage:**
 - Scanned PDFs (little/no text layer)
 - Complex PDF layouts (many blocks, images, tables)
-- Large Office files (>= 5MB)
 - Documents requiring OCR
 
 **Characteristics:**
-- Highest quality extraction
+- High quality extraction with LLM-optimized markdown output
 - Advanced table recognition
-- OCR for scanned content
-- Slower but more accurate
-
-**API Example:**
-```bash
-curl -X POST "http://localhost:5151/v1/convert/file" \
-  -F "files=@document.pdf" \
-  -F "to_formats=md" \
-  -F "do_ocr=true" \
-  -F "pipeline=standard" \
-  -F "table_mode=accurate"
-```
-
-**Docling Parameters (v1.9.0+):**
-
-| Parameter | Default | Options |
-|-----------|---------|---------|
-| `to_formats` | `["md"]` | md, json, html, text, doctags |
-| `pipeline` | `standard` | standard, simple, vlm |
-| `do_ocr` | `true` | true, false |
-| `ocr_engine` | `easyocr` | easyocr, rapidocr, tesseract |
-| `table_mode` | `accurate` | fast, accurate |
-| `image_export_mode` | `embedded` | embedded, placeholder, referenced |
+- OCR for scanned content via Tesseract
+- ARM-native, no external service dependency
+- Runs locally in the worker process (no network latency)
 
 ## Unsupported File Types
 
@@ -160,7 +135,7 @@ The following file types are **not supported** for extraction:
 
 | Type | Extensions | Reason |
 |------|------------|--------|
-| Images | `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`, `.tif`, `.webp`, `.heic` | Standalone image files are not processed. Image OCR is only performed within documents (e.g., scanned PDFs) via the Docling engine. |
+| Images | `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`, `.tif`, `.webp`, `.heic` | Standalone image files are not processed. Image OCR is only performed within documents (e.g., scanned PDFs) via the pymupdf4llm engine with Tesseract. |
 
 ## Triage Decision Logic
 
@@ -171,10 +146,10 @@ The triage service (in the [Document Service](https://github.com/Amivero-LLC/cur
 Analyzes first 3 pages for:
 | Check | Threshold | Result |
 |-------|-----------|--------|
-| Text per page | < 100 chars | Needs OCR -> `docling` |
-| Blocks per page | > 50 | Complex layout -> `docling` |
-| Images per page | > 3 | Image-heavy -> `docling` |
-| Tables detected | > 20 drawing lines | Has tables -> `docling` |
+| Text per page | < 100 chars | Needs OCR -> `pymupdf4llm` |
+| Blocks per page | > 50 | Complex layout -> `pymupdf4llm` |
+| Images per page | > 3 | Image-heavy -> `pymupdf4llm` |
+| Tables detected | > 20 drawing lines | Has tables -> `pymupdf4llm` |
 | None of above | - | Simple text -> `fast_pdf` |
 
 ### Office File Analysis
@@ -183,13 +158,13 @@ Uses file size as a complexity proxy:
 | File Size | Engine | Reason |
 |-----------|--------|--------|
 | < 5 MB | `document-service` | Simple document, MarkItDown handles well |
-| >= 5 MB | `docling` | Large file likely has complex content |
+| >= 5 MB | `document-service` | Large file, MarkItDown with LibreOffice conversion |
 
 ## Configuration
 
 ### config.yml
 
-The backend's extraction config is service-discovery-only. Engine triage, OCR settings, and Docling routing are managed by the Document Service internally.
+The backend's extraction config is service-discovery-only. Engine triage and OCR settings are managed by the Document Service internally.
 
 ```yaml
 extraction:
@@ -200,59 +175,22 @@ extraction:
   verify_ssl: true
 ```
 
-The Document Service connects to Docling via its own `DOCLING_SERVICE_URL` environment variable. The backend does not need to know about individual engines.
+The pymupdf4llm engine runs locally in the worker process and requires no additional service configuration. Tesseract must be installed in the worker container image.
 
 ### Concurrency & Resource Limits
 
-Concurrency is managed at two levels: **Celery worker pools** in the backend and a **Docling semaphore** in the Document Service.
+Concurrency is managed at the **Celery worker pool** level in the backend.
 
 #### Worker Pool Routing (Backend)
 
-The backend routes extraction tasks to separate Celery queues consumed by dedicated worker pools. This prevents slow Docling-bound extractions from blocking fast ones:
+The backend routes extraction tasks to separate Celery queues consumed by dedicated worker pools. This prevents slow pymupdf4llm extractions from blocking fast ones:
 
 | Worker Pool | Celery Queue | Concurrency Env Var | Default | Handles |
 |-------------|-------------|---------------------|---------|---------|
 | **worker-fast** | `extraction` | `CELERY_CONCURRENCY_FAST` | 6 | Text files, small PDFs, small Office docs |
-| **worker-heavy** | `extraction_heavy` | `CELERY_CONCURRENCY_HEAVY` | 2 | Large PDFs (>1MB), large Office files (>5MB) |
+| **worker-heavy** | `extraction_heavy` | `CELERY_CONCURRENCY_HEAVY` | 2 | Large/complex PDFs (>1MB, pymupdf4llm), large Office files (>5MB) |
 
 Routing is a pre-submission heuristic based on file extension and size — see [Queue System: Extraction Queue Routing](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/QUEUE_SYSTEM.md) for the full routing table.
-
-#### Docling Semaphore (Document Service)
-
-| Setting | Default | Where | Purpose |
-|---------|---------|-------|---------|
-| `DOCLING_MAX_CONCURRENT` | 2 | Document Service | Max simultaneous Docling extractions |
-
-An asyncio semaphore in the Document Service gates Docling HTTP calls.
-Non-Docling extractions (fast_pdf, markitdown) are unaffected and flow through immediately.
-
-**Tuning:** CPU containers (8GB) → 2 concurrent. GPU containers (16GB) → 3-4 concurrent.
-
-#### Docling Performance Optimization
-
-The Docling Docker container includes performance tuning:
-- **Model cache volume**: `docling_model_cache` persists ~1-2GB of model weights across container restarts, eliminating 60-120s cold starts
-- **Thread limits**: `OMP_NUM_THREADS=4` and `MKL_NUM_THREADS=4` prevent CPU contention in multi-worker environments
-- **GPU support**: `CUDA_VISIBLE_DEVICES=0` for the GPU variant (requires nvidia-docker runtime)
-
-### Docker Compose
-
-Docling runs as a profiled service inside the **document-service** compose file (not the backend). Use the localdev scripts or compose directly:
-
-```bash
-# Via localdev scripts (recommended)
-./scripts/dev-up.sh --with-docling       # CPU variant
-./scripts/dev-up.sh --with-docling-gpu   # GPU variant (requires nvidia-docker)
-
-# Or via .env toggles (read automatically by dev-up.sh)
-ENABLE_DOCLING_SERVICE=true              # in root .env
-ENABLE_DOCLING_GPU=false                 # set true for GPU variant
-
-# Or directly via compose
-cd curatore-document-service
-docker compose --profile docling up -d      # CPU
-docker compose --profile docling-gpu up -d  # GPU
-```
 
 ## Health Checks
 
@@ -261,12 +199,14 @@ docker compose --profile docling-gpu up -d  # GPU
 curl http://localhost:8010/api/v1/system/health
 # {"status":"ok","service":"document-service"}
 
-# Docling Service
-curl http://localhost:5151/health
-# {"status":"ok"}
-
 # Check fast_pdf availability (PyMuPDF in worker-fast)
 docker exec curatore-worker-fast python -c "import fitz; print(f'PyMuPDF {fitz.version}')"
+
+# Check pymupdf4llm availability
+docker exec curatore-worker-heavy python -c "import pymupdf4llm; print('pymupdf4llm available')"
+
+# Check Tesseract availability (required for OCR)
+docker exec curatore-worker-heavy tesseract --version
 ```
 
 ## Troubleshooting
@@ -283,13 +223,25 @@ docker-compose build --no-cache worker
 docker-compose up -d worker
 ```
 
-### Docling Returns 404
+### pymupdf4llm Import Error
 
-**Error:** `Task result not found`
+**Error:** `ModuleNotFoundError: No module named 'pymupdf4llm'`
 
-**Cause:** File format not supported by Docling (e.g., .txt files)
+**Cause:** pymupdf4llm not installed in worker container
 
-**Solution:** Triage automatically routes unsupported formats to the document service
+**Solution:**
+```bash
+docker-compose build --no-cache worker
+docker-compose up -d worker
+```
+
+### Tesseract Not Found
+
+**Error:** `TesseractNotFoundError: tesseract is not installed`
+
+**Cause:** Tesseract OCR not installed in worker container image
+
+**Solution:** Ensure the worker Dockerfile includes `apt-get install -y tesseract-ocr`
 
 ### Images Not Processing
 
@@ -301,11 +253,11 @@ docker-compose up -d worker
 
 ## References
 
-- [Docling GitHub](https://github.com/docling-project/docling)
-- [Docling Serve Documentation](https://docling-serve.readthedocs.io/)
+- [pymupdf4llm](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/)
 - [MarkItDown](https://github.com/microsoft/markitdown)
 - [PyMuPDF](https://pymupdf.readthedocs.io/)
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
 
-## Updated: 2026-02-16
+## Updated: 2026-02-17
 
-Triage-based architecture with fast_pdf, document-service, and docling engines.
+Triage-based architecture with fast_pdf, document-service, and pymupdf4llm engines.

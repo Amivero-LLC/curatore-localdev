@@ -16,9 +16,8 @@ graph TB
         Frontend["frontend\nNext.js 15\n:3000"]
         Backend["backend\nFastAPI\n:8000"]
         MCP["mcp\nMCP Gateway\n:8020"]
-        WorkerFast["worker-fast\nCelery\n(extraction, priority, maintenance)"]
-        WorkerHeavy["worker-heavy\nCelery\n(extraction_heavy / Docling)"]
-        WorkerInt["worker-integrations\nCelery\n(SAM, SharePoint, scrape, forecast)"]
+        WorkerDocs["worker-documents\nCelery\n(extraction, priority, maintenance)"]
+        WorkerGen["worker-general\nCelery\n(SAM, SharePoint, scrape, forecast)"]
         Beat["beat\nCelery Beat"]
 
         DocService["document-service\nExtraction\n:8010"]
@@ -41,21 +40,16 @@ graph TB
     Backend --> DocService
     Backend --> Playwright
 
-    WorkerFast --> Postgres
-    WorkerFast --> Redis
-    WorkerFast --> MinIO
-    WorkerFast --> DocService
-    WorkerHeavy --> Postgres
-    WorkerHeavy --> Redis
-    WorkerHeavy --> MinIO
-    WorkerHeavy --> DocService
-    WorkerInt --> Postgres
-    WorkerInt --> Redis
-    WorkerInt --> MinIO
-    WorkerInt --> DocService
+    WorkerDocs --> Postgres
+    WorkerDocs --> Redis
+    WorkerDocs --> MinIO
+    WorkerDocs --> DocService
+    WorkerGen --> Postgres
+    WorkerGen --> Redis
+    WorkerGen --> MinIO
+    WorkerGen --> DocService
     Beat --> Redis
 
-    DocService -.-> Docling["docling\nOCR + Layout\n:5001"]
 ```
 
 ### Service Responsibilities
@@ -63,13 +57,12 @@ graph TB
 | Service | Owns | Delegates To |
 |---------|------|-------------|
 | **backend** | API, auth, database schema, CWR runtime, search | document-service (extraction), playwright (rendering) |
-| **worker-fast** | Fast extraction (PyMuPDF/MarkItDown), priority tasks, maintenance | document-service |
-| **worker-heavy** | Complex extraction (Docling OCR/layout) | document-service → docling |
-| **worker-integrations** | External API sync (SAM, SharePoint, Salesforce, scrape, forecast) | document-service, external APIs |
+| **worker-documents** | Extraction (PyMuPDF/pymupdf4llm/MarkItDown), priority tasks, maintenance | document-service |
+| **worker-general** | External API sync (SAM, SharePoint, Salesforce, scrape, forecast) | document-service, external APIs |
 | **beat** | Cron scheduling (maintenance, reindex) | workers (via Redis) |
 | **frontend** | UI, client-side routing | backend (API) |
 | **mcp** | AI tool protocol, function exposure | backend (delegated auth + API) |
-| **document-service** | Triage, extraction (fast_pdf, markitdown) | docling (complex OCR/layout) |
+| **document-service** | Triage, extraction (fast_pdf, pymupdf4llm, markitdown) | — |
 | **playwright** | Browser rendering, JS execution | — |
 
 ## Data Flow
@@ -191,7 +184,7 @@ The backend API process writes heartbeats for services it owns direct connection
 
 Workers and beat run in separate containers from the same Docker image. Each writes its own heartbeat via a daemon thread (30s interval).
 
-**Services:** `backend`, `database`, `redis`, `storage`, `worker-fast`, `worker-heavy`, `worker-integrations`, `beat`
+**Services:** `backend`, `database`, `redis`, `storage`, `worker-documents`, `worker-general`, `beat`
 
 ### Pattern 2: Extracted Services (Self-Registering)
 
@@ -219,10 +212,10 @@ Consumers call `report_error()` / `report_success()` after each API interaction.
 ```
 Pattern 1: Core Infrastructure             Pattern 1: Workers
 Backend API (asyncio, 30s)                  Daemon threads (30s each)
-  |-- backend                                |-- worker-fast
-  |-- database                               |-- worker-heavy
-  |-- redis                                  |-- worker-integrations
-  |-- storage                                |-- beat
+  |-- backend                                |-- worker-documents
+  |-- database                               |-- worker-general
+  |-- redis                                  |-- beat
+  |-- storage
   v                                          v
 
 Pattern 2: Extracted Services (self-register, 30s each)
@@ -262,7 +255,7 @@ Keys: `curatore:heartbeat:{service_name}` (no TTL — timestamps are source of t
 | Service | Threshold | Pattern | Update Interval |
 |---------|-----------|---------|-----------------|
 | backend, database, redis, storage | 90s | Core infrastructure | 30s |
-| worker-fast, worker-heavy, worker-integrations, beat | 90s | Core infrastructure | 30s |
+| worker-documents, worker-general, beat | 90s | Core infrastructure | 30s |
 | extraction_service, playwright, mcp_gateway | 90s | Self-registering | 30s |
 | llm, sharepoint | 600s | Event-driven | On demand + 30s recovery |
 

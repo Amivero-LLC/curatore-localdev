@@ -26,7 +26,7 @@ Settings that change per deployment environment. These answer "where does this r
 | **Credentials & secrets** | `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `MINIO_ACCESS_KEY`, `MS_CLIENT_SECRET`, `SAM_API_KEY`, `SMTP_PASSWORD`, service API keys |
 | **Infrastructure endpoints** | `DATABASE_URL`, `MINIO_ENDPOINT`, `MINIO_SECURE`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` |
 | **Docker container config** | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` |
-| **Docker compose profiles** | `ENABLE_POSTGRES_SERVICE`, `ENABLE_DOCLING_SERVICE`, `ENABLE_TIKA_SERVICE` |
+| **Docker compose profiles** | `ENABLE_POSTGRES_SERVICE`, `ENABLE_TIKA_SERVICE` |
 | **Frontend build-time URLs** | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_EXTRACTION_URL` |
 | **Dev toggles** | `DEBUG`, `CORS_ORIGINS` |
 | **CLI seed data (fallback)** | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEFAULT_ORG_SLUG` (only used by `seed --create-admin` CLI; prefer the setup wizard at `/setup`) |
@@ -265,7 +265,7 @@ llm:
 
 Configure the standalone Document Service for document extraction.
 
-The backend delegates all extraction to the Document Service, which handles triage and engine selection internally (fast_pdf, markitdown, docling). The backend connects via the `DocumentServiceAdapter` using 3-tier config resolution: DB Connection → config.yml → environment variables. The config is service-discovery-only — engine selection and service-internal settings are managed by the Document Service itself.
+The backend delegates all extraction to the Document Service, which handles triage and engine selection internally (fast_pdf, pymupdf4llm, markitdown). The backend connects via the `DocumentServiceAdapter` using 3-tier config resolution: DB Connection → config.yml → environment variables. The config is service-discovery-only — engine selection and service-internal settings are managed by the Document Service itself.
 
 **Configuration:**
 - `extraction.enabled`: Enable/disable extraction (default: true)
@@ -290,33 +290,7 @@ extraction:
   verify_ssl: true
 ```
 
-> **Note:** Docling is configured inside the Document Service itself (via `DOCLING_SERVICE_URL`), not in the backend. The backend no longer communicates with Docling directly. Engine triage, OCR settings, and all extraction internals are managed by the Document Service.
-
-### Docling (Document Service Sidecar)
-
-Docling provides OCR and layout analysis for complex documents. It runs as a profiled Docker service alongside the document-service — not as a backend service.
-
-**Root `.env` toggles** (read by `generate-env.sh` and `dev-up.sh`):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENABLE_DOCLING_SERVICE` | `false` | Start the Docling container with the document-service compose |
-| `ENABLE_DOCLING_GPU` | `false` | Use GPU image (`docling-serve-cu128`) instead of CPU (`docling-serve-cpu`). Requires nvidia-docker runtime. |
-| `ENABLE_DOCLING_UI` | `false` | Enable Docling's built-in web UI at http://localhost:5151 |
-
-**Generated document-service `.env` variables** (written by `generate-env.sh`):
-
-| Variable | Value when enabled | Value when disabled | Description |
-|----------|-------------------|---------------------|-------------|
-| `DOCLING_SERVICE_URL` | `http://docling:5001` | *(empty)* | Document-service uses this to proxy complex extractions to Docling |
-| `DOCLING_TIMEOUT` | `300` | `300` | Request timeout in seconds |
-| `DOCLING_VERIFY_SSL` | `false` | `false` | SSL verification for Docling connection |
-| `DOCLING_MAX_CONCURRENT` | `2` | `2` | Max simultaneous Docling extractions (prevents OOM) |
-| `DOCLING_SERVE_ENABLE_UI` | `1` | `0` | Mapped from `ENABLE_DOCLING_UI` boolean |
-
-When `DOCLING_SERVICE_URL` is empty, the document-service disables Docling routing and falls back to `fast_pdf` (PyMuPDF) for PDFs and `markitdown` for Office documents.
-
-For external Docling instances (not managed by Docker Compose), set `ENABLE_DOCLING_SERVICE=false` and manually add `DOCLING_SERVICE_URL=https://your-docling-host:5001` to `curatore-document-service/.env`.
+> **Note:** Engine triage, OCR settings, and all extraction internals are managed by the Document Service. The backend does not communicate with extraction engines directly.
 
 ---
 
@@ -442,7 +416,7 @@ Curatore uses three specialized worker pools. Each pool has independent concurre
 | Variable | Default | Worker Pool | Description |
 |----------|---------|-------------|-------------|
 | `CELERY_CONCURRENCY_FAST` | `6` | worker-fast | User uploads, quick extractions (PyMuPDF/MarkItDown), maintenance |
-| `CELERY_CONCURRENCY_HEAVY` | `2` | worker-heavy | Complex extractions routed to Docling (OCR/layout). Keep low to match Docling throughput. |
+| `CELERY_CONCURRENCY_HEAVY` | `2` | worker-heavy | Complex extractions using pymupdf4llm (OCR/layout). Keep low to manage resource usage. |
 | `CELERY_CONCURRENCY_INTEGRATIONS` | `4` | worker-integrations | External API sync jobs (SharePoint, SAM.gov, Salesforce, web scraping, forecasts) |
 
 See [Queue System](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/QUEUE_SYSTEM.md) for full queue architecture, worker pool details, and extraction routing.

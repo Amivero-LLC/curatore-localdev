@@ -85,7 +85,6 @@ All services share a `curatore-network` Docker network and discover each other b
 | API Docs (Swagger) | — | http://localhost:8000/docs | — |
 | Document Service | `curatore-document-service` | http://localhost:8010 | http://document-service:8010 |
 | Playwright | `curatore-playwright` | http://localhost:8011 | http://playwright:8011 |
-| Docling (optional) | `curatore-docling` | http://localhost:5151 | http://docling:5001 |
 | MCP Gateway | `curatore-mcp` | http://localhost:8020 | http://mcp:8020 |
 | MinIO Console | `curatore-minio` | http://localhost:9001 | minio:9000 |
 | PostgreSQL | `curatore-postgres` | localhost:5432 | postgres:5432 |
@@ -103,7 +102,6 @@ All services share a `curatore-network` Docker network and discover each other b
 | 8000 | Backend API |
 | 8010 | Document Service |
 | 8011 | Playwright Service |
-| 5151 | Docling (optional — OCR + layout extraction) |
 | 8020 | MCP Gateway |
 | 9000 | MinIO S3 API |
 | 9001 | MinIO Console |
@@ -190,10 +188,6 @@ Defaults work for local development. See [`.env.example`](.env.example) for full
 | `EMAIL_FROM_ADDRESS` | `noreply@curatore.app` | Sender email address |
 | `EMAIL_FROM_NAME` | `Curatore` | Sender display name |
 | `SEARCH_ENABLED` | `true` | Enable hybrid full-text + semantic search |
-| `ENABLE_DOCLING_SERVICE` | `false` | Start embedded Docling container alongside document-service |
-| `ENABLE_DOCLING_GPU` | `false` | Use GPU image instead of CPU (requires nvidia-docker) |
-| `ENABLE_DOCLING_UI` | `false` | Enable Docling's built-in web UI at http://localhost:5151 |
-
 ### Docker-Only Variables (set automatically)
 
 These are set by `generate-env.sh` or `docker-compose.yml` and don't need to be in the root `.env`:
@@ -210,11 +204,6 @@ These are set by `generate-env.sh` or `docker-compose.yml` and don't need to be 
 | `DOCUMENT_SERVICE_URL` | `http://document-service:8010` | Docker container name |
 | `PLAYWRIGHT_SERVICE_URL` | `http://playwright:8011` | Docker container name |
 | `DOCUMENT_SERVICE_VERIFY_SSL` | `false` | No SSL between Docker containers |
-| `DOCLING_SERVICE_URL` | `http://docling:5001` (when enabled) | Set by generate-env.sh when `ENABLE_DOCLING_SERVICE=true` |
-| `DOCLING_TIMEOUT` | `300` | Docling request timeout in seconds |
-| `DOCLING_VERIFY_SSL` | `false` | No SSL between Docker containers |
-| `DOCLING_SERVE_ENABLE_UI` | `0` or `1` | Mapped from `ENABLE_DOCLING_UI` by generate-env.sh |
-
 ## Scripts Reference
 
 | Script | Purpose |
@@ -224,9 +213,7 @@ These are set by `generate-env.sh` or `docker-compose.yml` and don't need to be 
 | `./scripts/generate-env.sh` | Regenerate service configs after editing root `.env` |
 | `./scripts/generate-env.sh --check` | Validate root `.env` has all required fields |
 | `./scripts/dev-up.sh --with-postgres` | Start all services (includes local PostgreSQL) |
-| `./scripts/dev-up.sh --all` | Start everything including optional services (Docling) |
-| `./scripts/dev-up.sh --with-docling` | Start with optional Docling extraction engine (CPU) |
-| `./scripts/dev-up.sh --with-docling-gpu` | Start with Docling GPU variant (requires nvidia-docker) |
+| `./scripts/dev-up.sh --all` | Start everything including optional services |
 | `./scripts/dev-down.sh` | Stop all services |
 | `./scripts/dev-logs.sh` | Backend logs |
 | `./scripts/dev-logs.sh worker` | Celery worker logs |
@@ -287,100 +274,6 @@ curl http://localhost:8000/api/v1/admin/system/health/ready
 curl http://localhost:8000/api/v1/admin/system/health/comprehensive
 ```
 
-## Docling (Optional — Advanced Document Extraction)
-
-[IBM Docling](https://github.com/docling-project/docling) provides OCR and layout analysis for complex documents — scanned PDFs, multi-column layouts, tables, and large Office files. It runs as a sidecar alongside the document-service.
-
-### When do you need Docling?
-
-The document-service has built-in extraction engines (`fast_pdf` via PyMuPDF and `markitdown` via MarkItDown) that handle most documents. Docling is only needed for:
-
-- **Scanned PDFs** with no text layer (requires OCR)
-- **Complex PDF layouts** — multi-column, many images, nested tables
-- **Large Office files** (>5MB) with complex formatting
-
-Without Docling, the triage engine automatically falls back to the built-in engines.
-
-### Enabling Docling
-
-1. Set in root `.env`:
-   ```bash
-   ENABLE_DOCLING_SERVICE=true    # Start the Docling container
-   ENABLE_DOCLING_GPU=false       # true = GPU image (requires nvidia-docker)
-   ENABLE_DOCLING_UI=false        # true = enable Docling web UI at :5151
-   ```
-
-2. Regenerate configs and restart:
-   ```bash
-   ./scripts/generate-env.sh
-   ./scripts/dev-down.sh
-   ./scripts/dev-up.sh --with-postgres
-   ```
-
-   Or start directly with the CLI flag (no `.env` change needed):
-   ```bash
-   ./scripts/dev-up.sh --with-postgres --with-docling       # CPU
-   ./scripts/dev-up.sh --with-postgres --with-docling-gpu   # GPU
-   ```
-
-### How it works
-
-```
-generate-env.sh reads ENABLE_DOCLING_SERVICE from root .env
-    │
-    ├─ true  → writes DOCLING_SERVICE_URL=http://docling:5001 to document-service .env
-    └─ false → writes DOCLING_SERVICE_URL= (empty) to document-service .env
-
-dev-up.sh reads ENABLE_DOCLING_SERVICE / ENABLE_DOCLING_GPU from root .env
-    │
-    ├─ ENABLE_DOCLING_GPU=true  → docker compose --profile docling-gpu up -d
-    ├─ ENABLE_DOCLING_SERVICE=true → docker compose --profile docling up -d
-    └─ both false → no Docling container started
-```
-
-### Settings reference
-
-| Root `.env` Variable | Default | Description |
-|---------------------|---------|-------------|
-| `ENABLE_DOCLING_SERVICE` | `false` | Start the Docling container with the document-service |
-| `ENABLE_DOCLING_GPU` | `false` | Use GPU image (`docling-serve-cu128`) instead of CPU (`docling-serve-cpu`). Requires nvidia-docker. |
-| `ENABLE_DOCLING_UI` | `false` | Enable Docling's built-in web UI for testing at http://localhost:5151 |
-
-These are translated by `generate-env.sh` into the document-service `.env`:
-
-| Document-Service `.env` Variable | Set by | Description |
-|--------------------------------|--------|-------------|
-| `DOCLING_SERVICE_URL` | `generate-env.sh` | `http://docling:5001` when enabled, empty when disabled |
-| `DOCLING_TIMEOUT` | `generate-env.sh` | Request timeout in seconds (default: 300) |
-| `DOCLING_VERIFY_SSL` | `generate-env.sh` | SSL verification (default: false for Docker) |
-| `DOCLING_SERVE_ENABLE_UI` | `generate-env.sh` | `1` or `0`, mapped from `ENABLE_DOCLING_UI` |
-
-### Container details
-
-| Variant | Image | Memory | Start time | Use case |
-|---------|-------|--------|------------|----------|
-| CPU | `ghcr.io/docling-project/docling-serve-cpu:v1.12.0` | 2–8 GB | ~60s | Local dev, CI |
-| GPU | `ghcr.io/docling-project/docling-serve-cu128:v1.12.0` | 4–16 GB | ~120s | Linux with NVIDIA GPU |
-
-Both variants share `container_name: curatore-docling` — only one can run at a time.
-
-### Verifying Docling is working
-
-```bash
-# 1. Check Docling container health
-curl http://localhost:5151/health
-# {"status":"ok"}
-
-# 2. Check document-service sees Docling
-curl http://localhost:8010/api/v1/system/health
-# { "docling": { "configured": true, "reachable": true, ... } }
-
-# 3. Force Docling extraction on a PDF
-curl -X POST "http://localhost:8010/api/v1/extract?engine=docling" \
-  -F "file=@test.pdf" -H "Authorization: Bearer <DOCUMENT_SERVICE_API_KEY>"
-# Response: { "method": "docling", ... }
-```
-
 ## Working with Submodules
 
 ```bash
@@ -424,10 +317,6 @@ docker network rm curatore-network
 | Frontend can't reach backend | `NEXT_PUBLIC_API_URL` must be `http://localhost:8000` (browser-side) |
 | Worker not processing | `docker ps --filter "name=curatore-worker"` and `./scripts/dev-logs.sh worker` |
 | Config out of sync after `.env` edit | `./scripts/generate-env.sh` to regenerate all service configs |
-| Docling container not starting | Ensure `ENABLE_DOCLING_SERVICE=true` in root `.env`, then `./scripts/generate-env.sh` and restart |
-| Docling GPU fails | GPU variant requires nvidia-docker runtime. Use `ENABLE_DOCLING_GPU=false` on macOS/non-NVIDIA machines |
-| Docling unhealthy (timeout) | CPU variant needs ~60s to load models; GPU ~120s. Check `./scripts/dev-logs.sh docling` |
-| Document service can't reach Docling | Verify both containers are on `curatore-network`: `docker network inspect curatore-network` |
 
 ## Documentation
 
