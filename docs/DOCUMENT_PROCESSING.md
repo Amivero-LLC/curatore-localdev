@@ -223,6 +223,20 @@ JOIN assets a ON er.asset_id = a.id
 WHERE er.triage_needs_ocr = true;
 ```
 
+## Asset Deletion (Cascade Cleanup)
+
+When an asset is deleted — either individually via `DELETE /api/v1/assets/{id}` or in bulk via `POST /api/v1/data/upload-libraries/{id}/assets/delete` — the following cleanup cascade occurs:
+
+1. **Search index chunks** — Deleted via `pg_index_service.delete_asset_index()`. Removes all `search_chunks` rows for the asset.
+2. **Artifact files** — All artifact files (original upload, processed versions) deleted from MinIO, then artifact DB records deleted.
+3. **Extraction result files** — If `ExtractionResult.extracted_bucket` and `extracted_object_key` are set, the extracted Markdown file is deleted from MinIO.
+4. **Asset record** — The `Asset` row is deleted. ORM cascades (`cascade="all, delete-orphan"`) automatically remove:
+   - `ExtractionResult` rows
+   - `AssetVersion` rows
+5. **Library stats** — For bulk library deletes, library stats (asset count, total size) are recomputed after all deletions.
+
+Steps 1–3 are wrapped in try/except to ensure partial storage failures don't block the asset record deletion. The search index will self-heal on re-extraction if needed.
+
 ## Re-processing
 
 ### Trigger Re-extraction
