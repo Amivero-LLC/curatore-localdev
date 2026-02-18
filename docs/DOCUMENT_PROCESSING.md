@@ -108,7 +108,6 @@ After extraction, the `ExtractionResult` record stores triage decisions:
 ExtractionResult {
     # Core fields
     status: "completed"
-    extraction_tier: "basic" | "enhanced"
 
     # Triage fields (from Document Service response)
     triage_engine: "fast_pdf" | "markitdown" | "pymupdf4llm"
@@ -116,16 +115,13 @@ ExtractionResult {
     triage_needs_layout: bool
     triage_complexity: "low" | "medium" | "high"
     triage_duration_ms: int
+
+    # Structure metadata (document profile, components, quality signals)
+    structure_metadata: {...}  # from Document Service response
 }
 ```
 
-### Tier Mapping
-
-| Triage Engine | Extraction Tier |
-|--------------|-----------------|
-| `fast_pdf` | `basic` |
-| `markitdown` | `basic` |
-| `pymupdf4llm` | `enhanced` |
+The `triage_engine` value is also written as `extraction_method` into `source_metadata.file` for search indexing and faceted filtering.
 
 ## Configuration
 
@@ -187,16 +183,20 @@ curl http://localhost:8010/api/v1/system/capabilities
   "asset": {
     "id": "...",
     "status": "ready",
-    "extraction_tier": "enhanced",
     "indexed_at": "2026-02-01T19:05:00Z"
   },
   "extraction": {
     "status": "completed",
-    "extraction_tier": "enhanced",
     "triage_engine": "pymupdf4llm",
     "triage_needs_ocr": true,
+    "triage_needs_layout": true,
     "triage_complexity": "high",
-    "triage_duration_ms": 45
+    "triage_duration_ms": 45,
+    "structure_metadata": {
+      "document_profile": {"content_type": "text", "total_chars": 12500, "total_words": 2100},
+      "components": {"headings_h1": 3, "tables": 2, "images": 1},
+      "quality_signals": {"extraction_coverage": 0.98, "pages_ocr_applied": 2}
+    }
   }
 }
 ```
