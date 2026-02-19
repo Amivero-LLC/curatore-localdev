@@ -129,6 +129,27 @@ curl -X POST "http://localhost:8010/api/v1/extract" \
 - ARM-native, no external service dependency
 - Runs locally in the worker process (no network latency)
 
+## Pre-Flight Validation
+
+Before extraction begins, two layers of validation reject files that cannot or should not be processed. Both checks run before any download or engine work, so rejected files fail fast.
+
+### File Size Limit
+
+| Layer | Check | Default Limit | Config |
+|-------|-------|---------------|--------|
+| **Backend** (`extraction_orchestrator.py`) | `asset.file_size` from DB | 50 MB | `settings.max_file_size` |
+| **Document Service** (`extract.py`) | `os.path.getsize()` after disk save | 50 MB | `settings.MAX_FILE_SIZE` / `MAX_FILE_SIZE` env var |
+
+The backend check runs first — oversized files are never downloaded from MinIO. The document service check is defense-in-depth for direct API callers. Both return `failure_category: "file_too_large"` which routes the asset to `unsupported` status (non-retryable).
+
+### Password-Protected Files
+
+The document service detects encrypted Office files by checking for OLE2 magic bytes (`D0 CF 11 E0 A1 B1 1A E1`). Modern Office formats (`.xlsx`, `.docx`, `.pptx`) are normally ZIP-based; if they have OLE2 magic, they are encrypted. Returns HTTP 422 with `reason: "password_protected"`, which the backend classifies as `failure_category: "password_protected"` and routes to `unsupported` status.
+
+### Unsupported File Types
+
+The backend validates file extensions against the `SUPPORTED_EXTENSIONS` set before downloading. The document service's triage service also rejects unknown formats. Both route to `unsupported` status.
+
 ## Unsupported File Types
 
 The following file types are **not supported** for extraction:
