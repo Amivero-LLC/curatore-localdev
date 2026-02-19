@@ -11,6 +11,7 @@ Master map of all documentation across Curatore repositories.
 | [Document Processing](DOCUMENT_PROCESSING.md) | Upload → extraction → indexing pipeline |
 | [Extraction Engines](EXTRACTION_SERVICES.md) | Triage, engine comparison, supported formats |
 | [Data Connections](DATA_CONNECTIONS.md) | Adding new integrations (full checklist) |
+| [Embedding Models & pgvector](EMBEDDING_MODELS.md) | Supported models, dimension auto-resolution, switching models in production |
 | [Job Engine](JOB_ENGINE.md) | Run-based execution, Celery queues, WebSocket updates, job type registry |
 
 ## Backend

@@ -140,6 +140,7 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | [Configuration](docs/CONFIGURATION.md) | .env vs config.yml philosophy |
 | [Document Processing](docs/DOCUMENT_PROCESSING.md) | Upload → extraction → indexing pipeline |
 | [Extraction Engines](docs/EXTRACTION_SERVICES.md) | Triage, engine comparison |
+| [Embedding Models & pgvector](docs/EMBEDDING_MODELS.md) | Supported models, dimension auto-resolution, switching models |
 | [Data Connections](docs/DATA_CONNECTIONS.md) | Adding new integrations |
 
 ## Quick Debugging
