@@ -149,7 +149,7 @@ These enable full functionality but can be left blank to start without their fea
 | `MS_TENANT_ID` | Azure AD tenant ID for SharePoint integration |
 | `MS_CLIENT_ID` | Azure app registration client ID |
 | `MS_CLIENT_SECRET` | Azure app registration client secret |
-| `SAM_API_KEY` | SAM.gov API key for government opportunities |
+| `SAM_API_KEY` | SAM.gov API key for government opportunities (flows into `config.yml` `sam:` section via `generate-env.sh`) |
 
 ### Auto-Generated Secrets
 

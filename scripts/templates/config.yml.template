@@ -94,6 +94,18 @@ microsoft_graph:
   email_sender_user_id: __MS_EMAIL_SENDER__
 
 # ============================================================================
+# SAM.gov Opportunities API Configuration
+# ============================================================================
+sam:
+  enabled: __SAM_ENABLED__
+  api_key: __SAM_API_KEY__
+  timeout: 60
+  max_retries: 3
+  rate_limit_delay: 0.5
+  max_pages_per_pull: 10
+  page_size: 100
+
+# ============================================================================
 # Queue Configuration
 # ============================================================================
 queue:

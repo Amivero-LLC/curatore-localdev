@@ -43,7 +43,7 @@ Settings that define what the application does. These answer "how should the app
 | **Search behavior** | Mode, semantic weight, chunk size, batch size |
 | **Queue behavior** | Per-queue overrides (concurrency, timeouts) |
 | **Email behavior** | Backend, sender name/address |
-| **Integration settings** | SAM.gov rate limits, page sizes |
+| **Integration settings** | SAM.gov API key, rate limits, page sizes; Microsoft Graph config |
 
 ### Key Rules
 
@@ -80,7 +80,7 @@ Curatore is progressively breaking services into independent repos. The Playwrig
 
 All extracted services follow the same pattern: `enabled`, `service_url`, `api_key`, `timeout`, plus service-specific connection fields. No service-internal settings (engine arrays, browser pool sizes, viewport dimensions, etc.) — those are managed by each service's own environment.
 
-**Current legacy debt:** The `Settings` class in `backend/app/config.py` still contains ~40 fields that are fully superseded by `config.yml` sections (LLM, search, SAM, email, extraction, playwright). These are harmless (config.yml takes priority) but will be cleaned up as services are extracted. Job management settings (`DEFAULT_JOB_CONCURRENCY_LIMIT`, etc.) still live only in `.env`/Settings and should eventually move to `config.yml`.
+**Current legacy debt:** The `Settings` class in `backend/app/config.py` still contains ~40 fields that are fully superseded by `config.yml` sections (LLM, search, SAM, email, extraction, playwright). These are harmless (config.yml takes priority via the resolution chain) but will be cleaned up as services are extracted. Job management settings (`DEFAULT_JOB_CONCURRENCY_LIMIT`, etc.) still live only in `.env`/Settings and should eventually move to `config.yml`.
 
 **Docker Compose `env_file` pattern:** The backend `docker-compose.yml` uses `env_file: .env` to pass all variables from `curatore-backend/.env` into containers. Only Docker-specific overrides (container names like `DOCUMENT_SERVICE_URL=http://document-service:8010`, runtime flags like `PYTHONUNBUFFERED=1`) remain in the `environment:` block. This means `generate-env.sh` is the single point of control — any variable the backend needs must be either in the generated `.env` or have a default in the `Settings` class.
 
@@ -319,6 +319,44 @@ sharepoint:
   client_secret: ${MS_CLIENT_SECRET}
   timeout: 60
 ```
+
+---
+
+### SAM.gov Opportunities
+
+Configure SAM.gov integration for federal contracting opportunity search and monitoring.
+
+**Optional:**
+- `sam.enabled`: Enable SAM.gov integration (default: false)
+- `sam.api_key`: SAM.gov API key (get one at https://sam.gov/content/entity-registration)
+- `sam.timeout`: Request timeout in seconds (default: 60)
+- `sam.max_retries`: Maximum retry attempts (default: 3)
+- `sam.rate_limit_delay`: Delay between requests in seconds (default: 0.5)
+- `sam.max_pages_per_pull`: Maximum pages to fetch per pull (default: 10)
+- `sam.page_size`: Results per page (default: 100)
+
+**API Key Resolution Priority:**
+1. Instance override (via `configure()` at runtime)
+2. `config.yml` `sam:` section (recommended)
+3. Database connection (`sam_gov` type, backward compat)
+4. Environment variable (`SAM_API_KEY`)
+
+**Environment Variables (fallback):**
+- `SAM_API_KEY`: SAM.gov API key
+
+**Example:**
+```yaml
+sam:
+  enabled: true
+  api_key: ${SAM_API_KEY}
+  timeout: 60
+  max_retries: 3
+  rate_limit_delay: 0.5
+  max_pages_per_pull: 10
+  page_size: 100
+```
+
+> **Note:** When using `generate-env.sh`, the `sam:` section is automatically populated from the root `.env` `SAM_API_KEY` value. `enabled` is set to `true` when the key is present.
 
 ---
 
@@ -676,6 +714,12 @@ sharepoint:
   client_id: ${MS_CLIENT_ID}
   client_secret: ${MS_CLIENT_SECRET}
 
+sam:
+  enabled: true
+  api_key: ${SAM_API_KEY}
+  timeout: 60
+  max_retries: 3
+
 email:
   backend: smtp
   from_address: noreply@curatore.app
@@ -716,6 +760,6 @@ For questions or issues:
 
 ---
 
-**Last Updated**: 2026-02-16
+**Last Updated**: 2026-02-18
 
 **Version**: Curatore v2.1.0

@@ -246,6 +246,13 @@ else
   MS_ENABLE_EMAIL="false"
 fi
 
+# Determine SAM.gov enabled state
+if [[ -n "$SAM_API_KEY" ]]; then
+  SAM_ENABLED="true"
+else
+  SAM_ENABLED="false"
+fi
+
 # Use sed to substitute all placeholders.
 # We use | as delimiter to avoid conflicts with URLs containing /
 sed \
@@ -274,6 +281,8 @@ sed \
   -e "s|__MS_CLIENT_SECRET__|${MS_CLIENT_SECRET}|g" \
   -e "s|__MS_ENABLE_EMAIL__|${MS_ENABLE_EMAIL}|g" \
   -e "s|__MS_EMAIL_SENDER__|${MS_EMAIL_SENDER}|g" \
+  -e "s|__SAM_ENABLED__|${SAM_ENABLED}|g" \
+  -e "s|__SAM_API_KEY__|${SAM_API_KEY}|g" \
   "${TEMPLATE}" > "${ROOT}/curatore-backend/config.yml"
 
 # --------------------------------------------------------------------------

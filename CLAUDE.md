@@ -86,7 +86,7 @@ Services reference each other by Docker container name, **not** `localhost`:
 ## Cross-Service Development Rules
 
 1. **API changes cascade** — When changing backend API endpoints, update: frontend `lib/api.ts`, MCP service contract converter, and docs
-2. **Config split** — `.env` = secrets + Docker infrastructure; `config.yml` = application behavior + external service discovery. See [backend CLAUDE.md](curatore-backend/CLAUDE.md)
+2. **Config split** — `.env` = secrets + Docker infrastructure; `config.yml` = application behavior + external service discovery (including SAM.gov, Microsoft Graph, LLM, extraction, playwright). See [backend CLAUDE.md](curatore-backend/CLAUDE.md)
 3. **Inter-service URLs** — Always use Docker container names (e.g., `http://document-service:8010`), never `localhost`. `localhost:PORT` is for browser/developer access only
 4. **Migration parity** — When adding Alembic migrations that INSERT reference data or create VIEWs, also update `prestart.py` `_create_all_tables()` for fresh install parity
 5. **Four containers, one image** — Backend, worker-documents, worker-general, and beat all run from the same Docker image
@@ -155,6 +155,7 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | Check all service heartbeats | `docker exec curatore-redis redis-cli -n 2 KEYS "curatore:heartbeat:*"` |
 | Check specific service heartbeat | `docker exec curatore-redis redis-cli -n 2 GET "curatore:heartbeat:backend"` |
 | Service shows unhealthy after restart | Heartbeat writers update within 30s. Check freshness thresholds in `heartbeat_service.py` |
+| SAM.gov pages show "configuration required" | Set `SAM_API_KEY` in root `.env`, run `./scripts/generate-env.sh`, restart services. Verify `config.yml` has `sam: enabled: true` |
 
 ## Clean Reinstall
 
