@@ -94,7 +94,13 @@ OPENAI_API_KEY="$(env_get OPENAI_API_KEY)"
 OPENAI_BASE_URL="$(env_get OPENAI_BASE_URL "https://litellm.prod.amivero-solutions.com")"
 OPENAI_MODEL="$(env_get OPENAI_MODEL "claude-4-5-sonnet")"
 LLM_EMBEDDING_MODEL="$(env_get LLM_EMBEDDING_MODEL "text-embedding-3-large")"
-LLM_EMBEDDING_DIMENSIONS="$(env_get LLM_EMBEDDING_DIMENSIONS "1536")"
+case "$LLM_EMBEDDING_MODEL" in
+  text-embedding-3-large)          LLM_EMBEDDING_DIMENSIONS=3072 ;;
+  text-embedding-3-small)          LLM_EMBEDDING_DIMENSIONS=1536 ;;
+  amazon-titan-embed-text-v2:0)    LLM_EMBEDDING_DIMENSIONS=1024 ;;
+  text-embedding-ada-002)          LLM_EMBEDDING_DIMENSIONS=1536 ;;
+  *)                               LLM_EMBEDDING_DIMENSIONS=1536 ;;
+esac
 LLM_QUICK_MODEL="$(env_get LLM_QUICK_MODEL "$OPENAI_MODEL")"
 LLM_QUICK_TEMPERATURE="$(env_get LLM_QUICK_TEMPERATURE "0.1")"
 LLM_STANDARD_MODEL="$(env_get LLM_STANDARD_MODEL "$OPENAI_MODEL")"

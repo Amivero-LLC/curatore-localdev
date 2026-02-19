@@ -176,6 +176,20 @@ fi
 val="$(prompt_value "MS Graph Email Sender" MS_EMAIL_SENDER "$current_sender")"
 [[ -n "$val" ]] && env_set MS_EMAIL_SENDER "$val"
 
+# Embedding model selection
+current_embed="$(env_get LLM_EMBEDDING_MODEL "text-embedding-3-large")"
+echo ""
+echo "   Embedding model for semantic search:"
+echo "     1) text-embedding-3-large   (OpenAI, 3072 dims, default)"
+echo "     2) text-embedding-3-small   (OpenAI, 1536 dims)"
+echo "     3) amazon-titan-embed-text-v2:0  (AWS Bedrock, 1024 dims)"
+read -rp "  Embedding model [1/2/3] (default: 1): " embed_choice
+case "${embed_choice:-1}" in
+  2) env_set LLM_EMBEDDING_MODEL "text-embedding-3-small" ;;
+  3) env_set LLM_EMBEDDING_MODEL "amazon-titan-embed-text-v2:0" ;;
+  *) env_set LLM_EMBEDDING_MODEL "text-embedding-3-large" ;;
+esac
+
 echo ""
 
 # --------------------------------------------------------------------------
