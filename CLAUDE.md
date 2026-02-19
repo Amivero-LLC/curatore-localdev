@@ -105,6 +105,74 @@ Services reference each other by Docker container name, **not** `localhost`:
 4. **NEVER** commit `.env` files — they contain secrets.
 5. **NEVER** use `localhost` in inter-service Docker URLs.
 6. **NEVER** assign users to `__system__` org — it's for CWR procedure ownership only.
+7. **NEVER** commit code without running `./scripts/dev-check.sh` (or the appropriate `--service=` variant) and confirming all phases pass. Fix failures before committing.
+8. **NEVER** suppress security findings (`# nosec`, `# noqa`) or skip tests (`@pytest.mark.skip`) without explicit justification in a comment explaining why.
+
+## Pre-Commit Quality Gates
+
+**Before every commit** — in localdev or any submodule — run the relevant quality checks and fix all failures. Do not commit code that fails linting, security scanning, or tests.
+
+### Quick Reference
+
+```bash
+./scripts/dev-check.sh                       # Full sweep: lint + security + tests (all services)
+./scripts/dev-check.sh --service=backend     # Single service only
+./scripts/dev-check.sh --lint-only           # Linting only
+./scripts/dev-check.sh --security-only       # Security only
+./scripts/dev-check.sh --test-only           # Tests only
+```
+
+### What Must Pass
+
+All three phases must pass before committing. Warnings (WARN) are acceptable; failures (FAIL) are not.
+
+| Phase | Tool | Services | What It Checks |
+|-------|------|----------|----------------|
+| **Linting** | Ruff | backend, document-service, playwright, mcp | Python style: E (errors), F (pyflakes), W (warnings), I (isort) — line-length 120 |
+| **Linting** | ESLint | frontend | Next.js + TypeScript rules (`.eslintrc.json`) |
+| **Security (SAST)** | Bandit | backend, document-service, playwright, mcp | Python static analysis — medium + high severity (`-ll`) |
+| **Security (Deps)** | pip-audit | backend, document-service, playwright, mcp | Known CVEs in installed Python packages |
+| **Security (Deps)** | npm audit | frontend | Known vulnerabilities in production Node dependencies (`--omit=dev`) |
+| **Tests** | pytest | backend, document-service, playwright, mcp | Full test suite with coverage (`--cov=app`) |
+| **Tests** | Jest | frontend | Full test suite with coverage (`--ci --coverage`) |
+
+### When to Run What
+
+| Change Scope | Minimum Check |
+|-------------|--------------|
+| Single Python service (e.g., backend only) | `./scripts/dev-check.sh --service=backend` |
+| Single frontend change | `./scripts/dev-check.sh --service=frontend` |
+| Cross-service changes (API contract, shared types) | `./scripts/dev-check.sh` (full sweep) |
+| Documentation-only changes | No check required |
+| Docker/compose config changes | `./scripts/dev-check.sh --test-only` (verify services still start and pass) |
+
+### Service-to-Check Mapping
+
+When working inside a submodule, use `--service=` to target just that service:
+
+| Submodule Directory | `--service=` Value |
+|--------------------|-------------------|
+| `curatore-backend/` | `backend` |
+| `curatore-document-service/` | `document-service` |
+| `curatore-playwright-service/` | `playwright` |
+| `curatore-mcp-service/` | `mcp` |
+| `curatore-frontend/` | `frontend` |
+
+### Fixing Common Failures
+
+| Failure | How to Fix |
+|---------|-----------|
+| Ruff import order (I001) | Reorder imports: stdlib → third-party → local, separated by blank lines |
+| Ruff unused import (F401) | Remove the unused import |
+| Ruff undefined name (F821) | Add the missing import or fix the typo |
+| Bandit finding (medium/high) | Address the security issue — do not suppress with `# nosec` without justification |
+| pip-audit / npm audit vulnerability | Update the affected package if a fix is available; document if no fix exists yet |
+| pytest failure | Fix the failing test or the code it tests — do not skip tests with `@pytest.mark.skip` without justification |
+| ESLint error | Fix per the rule; unused vars can use `_` prefix if intentionally unused |
+
+### Reports
+
+All check results are written to `logs/quality_reports/<TIMESTAMP>/`. Review individual log files (e.g., `lint_backend.log`, `bandit_mcp.log`, `test_frontend.log`) for details on failures.
 
 ## Submodule Workflow
 
