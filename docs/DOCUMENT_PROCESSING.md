@@ -46,14 +46,16 @@ Documents enter Curatore through multiple sources:
 
 | Source | Endpoint/Trigger | Source Type |
 |--------|------------------|-------------|
-| Manual Upload | `POST /api/v1/storage/upload/proxy` | `upload` |
+| Manual Upload | `POST /api/v1/data/assets/upload/apply` | `upload` |
 | SharePoint Sync | SharePoint sync job | `sharepoint` |
 | Web Scraping | Scrape collection crawl | `web_scrape` |
 | SAM.gov | SAM pull job | `sam_gov` |
 
+**Upload Libraries & Folders**: Uploaded files are organized into named libraries (e.g., "General", "Policy Documents"). Within each library, hierarchical sub-folders provide structured organization. Upload endpoints accept optional `library_id` and `folder_id` parameters. Folder paths are stored in asset `source_metadata` for search filtering. Physical MinIO paths remain flat — the folder hierarchy is metadata-only.
+
 **What Happens**:
 1. File uploaded to MinIO (`curatore-original` bucket)
-2. `Asset` record created with `status=pending`
+2. `Asset` record created with `status=pending` (with library/folder metadata if provided)
 3. `Run` record created with `run_type=extraction`
 4. `ExtractionQueueService` routes task to the appropriate Celery queue:
    - **`extraction` queue** (worker-fast): Text files, small PDFs (<=1MB), small Office docs (<=5MB)
@@ -236,6 +238,17 @@ When an asset is deleted — either individually via `DELETE /api/v1/assets/{id}
 5. **Library stats** — For bulk library deletes, library stats (asset count, total size) are recomputed after all deletions.
 
 Steps 1–3 are wrapped in try/except to ensure partial storage failures don't block the asset record deletion. The search index will self-heal on re-extraction if needed.
+
+### Folder Deletion (Cascade)
+
+When a folder is deleted via `DELETE /api/v1/data/upload-libraries/{id}/folders/{folder_id}`, the same asset cleanup cascade runs for all assets in the folder and all sub-folders:
+
+1. Collect all descendant folder IDs via path prefix match (`path LIKE 'folder.path/%'`)
+2. Collect all asset IDs where `source_metadata["upload"]["folder_id"]` is in those folder IDs
+3. Run the asset cleanup cascade (search index → MinIO → extraction results → DB) for each asset
+4. Delete folder records (CASCADE on `parent_id` FK handles sub-folder rows)
+
+Use `?cascade=false` to move folder contents to the parent folder instead of deleting them.
 
 ## Re-processing
 
