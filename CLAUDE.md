@@ -10,12 +10,23 @@ cd curatore-localdev
 ./scripts/bootstrap.sh
 ```
 
-The bootstrap script prompts for API keys, generates configs, and starts all services. On first visit to http://localhost:3000, a setup wizard guides you through creating the initial admin account. See [`.env.example`](.env.example) for all configurable variables.
+The bootstrap script prompts for API keys, generates configs, starts all services, and seeds the initial admin user from `.env` credentials. See [`.env.example`](.env.example) for all configurable variables.
 
 To regenerate service configs after editing `.env`:
 ```bash
 ./scripts/generate-env.sh
 ```
+
+## Dev Admin Credentials
+
+The root `.env` contains admin credentials (`ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_USERNAME`, `ADMIN_FULL_NAME`) that are automatically used to create the system admin user on fresh installs. This is a **development convenience** so you can perform system functions with consistent credentials across `bootstrap.sh` and `factory-reset.sh` cycles without re-entering them in the setup wizard each time.
+
+- **Auto-seeded on fresh install** — prestart detects a new database and creates the admin from env vars
+- **Idempotent** — skips if an admin already exists; safe to re-run
+- **CLI fallback** — `docker exec curatore-backend python -m app.core.commands.seed --create-admin` for existing databases
+- **Setup wizard still works** — if you prefer, clear the env vars and use http://localhost:3000/setup instead
+
+To change the dev admin credentials, edit the root `.env` and re-run `./scripts/generate-env.sh`.
 
 ## Key Commands
 
@@ -234,6 +245,5 @@ docker images --format "{{.Repository}} {{.ID}}" | grep curatore | awk '{print $
 docker volume ls --format "{{.Name}}" | grep curatore | xargs -r docker volume rm -f
 docker network rm curatore-network
 ./scripts/dev-up.sh --with-postgres
-# Open http://localhost:3000 to create admin via setup wizard
-# Or use CLI: docker exec curatore-backend python -m app.core.commands.seed --create-admin
+# Admin user is auto-seeded from .env on fresh install — log in at http://localhost:3000
 ```

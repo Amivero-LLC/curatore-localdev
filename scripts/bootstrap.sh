@@ -251,8 +251,10 @@ else
   "${SCRIPT_DIR}/dev-up.sh" --with-postgres
   echo ""
 
-  echo "7. Services starting..."
-  echo "   Open http://localhost:3000 to create your admin account via the setup wizard."
+  # dev-up.sh waits for backend health, so the seed command can run immediately.
+  # Idempotent — skips if an admin already exists.
+  echo "7. Seeding admin user from .env credentials..."
+  docker exec curatore-backend python -m app.core.commands.seed --create-admin 2>&1 | tail -5
   echo ""
 fi
 
@@ -273,9 +275,13 @@ if [[ "$SKIP_START" == "false" ]]; then
   echo "    MCP Gateway:      http://localhost:8020"
   echo "    MinIO Console:    http://localhost:9001"
   echo ""
+  echo "  Admin Login (from .env — development only):"
+  echo "    Email:    $(env_get ADMIN_EMAIL "admin@example.com")"
+  echo "    Password: $(env_get ADMIN_PASSWORD "changeme")"
+  echo ""
 fi
 echo "  Getting Started:"
-echo "    Open http://localhost:3000 to create your admin account."
+echo "    Open http://localhost:3000 and log in with the admin credentials above."
 echo ""
 echo "  Config files:"
 echo "    Root:     .env (edit this, then run ./scripts/generate-env.sh)"
