@@ -51,7 +51,7 @@ Documents enter Curatore through multiple sources:
 | Web Scraping | Scrape collection crawl | `web_scrape` |
 | SAM.gov | SAM pull job | `sam_gov` |
 
-**Upload Libraries & Folders**: Uploaded files are organized into named libraries (e.g., "General", "Policy Documents"). Within each library, hierarchical sub-folders provide structured organization. Upload endpoints accept optional `library_id` and `folder_id` parameters. Folder paths are stored in asset `source_metadata` for search filtering. Physical MinIO paths remain flat — the folder hierarchy is metadata-only.
+**Upload Libraries & Folders**: All manually uploaded files must be associated with an upload library. Libraries (e.g., "General", "Policy Documents") organize uploads with optional hierarchical sub-folders. Upload endpoints require a resolved library — either via explicit `library_id` parameter or the organization's default library. If no library can be resolved, the API returns HTTP 400. The `storage_folder` in asset `source_metadata` is set to `uploads/{library_slug}` (or `uploads/{library_slug}/{folder_path}` with a folder). Physical MinIO paths remain flat — the folder hierarchy is metadata-only.
 
 **What Happens**:
 1. File uploaded to MinIO (`curatore-original` bucket)
