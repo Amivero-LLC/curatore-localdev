@@ -51,10 +51,10 @@ Documents enter Curatore through multiple sources:
 | Web Scraping | Scrape collection crawl | `web_scrape` |
 | SAM.gov | SAM pull job | `sam_gov` |
 
-**Upload Libraries & Folders**: All manually uploaded files must be associated with an upload library. Libraries (e.g., "General", "Policy Documents") organize uploads with optional hierarchical sub-folders. Upload endpoints require a resolved library — either via explicit `library_id` parameter or the organization's default library. If an explicit `library_id` is provided that does not belong to the user's organization, the API returns HTTP 400. If no `library_id` is provided and no default library exists, the API also returns HTTP 400. The `storage_folder` in asset `source_metadata` is set to `uploads/{library_slug}` (or `uploads/{library_slug}/{folder_path}` with a folder). MinIO object keys include the library slug: `{org_id}/uploads/{library_slug}/{doc_id}-{filename}`. The folder hierarchy within a library is metadata-only — sub-folder organization does not change the MinIO path.
+**Upload Libraries & Folders**: All manually uploaded files must be associated with an upload library. Libraries (e.g., "General", "Policy Documents") organize uploads with optional hierarchical sub-folders. Upload endpoints require a resolved library — either via explicit `library_id` parameter or the organization's default library. If an explicit `library_id` is provided that does not belong to the user's organization, the API returns HTTP 400. If no `library_id` is provided and no default library exists, the API also returns HTTP 400. The `storage_folder` in asset `source_metadata` is set to `file-libraries/{library_slug}` (or `file-libraries/{library_slug}/{folder_path}` with a folder). MinIO object keys include the library slug: `{org_id}/file-libraries/{library_slug}/{doc_id}-{filename}`. The folder hierarchy within a library is metadata-only — sub-folder organization does not change the MinIO path.
 
 **What Happens**:
-1. File uploaded to MinIO (`curatore-original` bucket) at `{org_id}/uploads/{library_slug}/{doc_id}-{filename}`
+1. File uploaded to MinIO (`curatore-original` bucket) at `{org_id}/file-libraries/{library_slug}/{doc_id}-{filename}`
 2. `Asset` record created with `status=pending` (with library/folder metadata)
 3. `Run` record created with `run_type=extraction`
 4. `ExtractionQueueService` routes task to the appropriate Celery queue:
