@@ -99,6 +99,17 @@ flowchart LR
     Asset --> PG
 ```
 
+### Search Pipeline
+
+After indexing, the search pipeline processes queries in stages:
+
+1. **Hybrid retrieval** — Parallel keyword (tsvector) + semantic (pgvector cosine) scoring
+2. **Score fusion** — Weighted combination: `(1-w) × keyword + w × semantic`
+3. **Cross-encoder reranking** (optional) — LLM/Cohere/Jina rescoring for improved relevance
+4. **Relevance filtering** — Drop results below `min_relevance_score` threshold
+
+See [Search Reranking](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SEARCH_RERANKING.md) for configuration.
+
 ## Authentication
 
 ```mermaid
