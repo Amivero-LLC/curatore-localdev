@@ -55,6 +55,23 @@ BACKEND_PROFILES=""
 if [[ "$WITH_POSTGRES" == "true" ]]; then
   BACKEND_PROFILES="${BACKEND_PROFILES} --profile postgres"
   echo "   Including PostgreSQL"
+
+  # Start postgres first and wait for it to be healthy before starting
+  # the backend. On fresh volumes, postgres needs time to run initdb and
+  # set up password auth — starting the backend too early causes transient
+  # "password authentication failed" errors.
+  docker compose --profile postgres up -d postgres
+  echo "   Waiting for PostgreSQL to be healthy..."
+  for i in $(seq 1 30); do
+    if docker inspect --format='{{.State.Health.Status}}' curatore-postgres 2>/dev/null | grep -q healthy; then
+      echo "   PostgreSQL ready (${i}s)"
+      break
+    fi
+    if [[ $i -eq 30 ]]; then
+      echo "   WARNING: PostgreSQL did not become healthy within 30s — continuing anyway"
+    fi
+    sleep 1
+  done
 fi
 
 docker compose ${BACKEND_PROFILES} up -d --build

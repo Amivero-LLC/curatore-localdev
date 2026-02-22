@@ -136,9 +136,11 @@ echo ""
 current="$(env_get OPENAI_API_KEY)"
 if [[ -z "$current" || "$current" == "your-api-key-here" ]]; then
   echo "   LLM API key is required for document analysis and CWR."
+  val="$(prompt_value "LLM API Key (LiteLLM)" OPENAI_API_KEY "$current")"
+  [[ -n "$val" ]] && env_set OPENAI_API_KEY "$val"
+else
+  echo "   LLM API Key: ${current:0:8}... (already set)"
 fi
-val="$(prompt_value "LLM API Key (LiteLLM)" OPENAI_API_KEY "$current")"
-[[ -n "$val" ]] && env_set OPENAI_API_KEY "$val"
 
 # SAM.gov
 current="$(env_get SAM_API_KEY)"
@@ -146,9 +148,11 @@ if [[ -z "$current" ]]; then
   echo ""
   echo "   SAM.gov API key enables government opportunities search."
   echo "   Get one at: https://sam.gov/content/entity-registration"
+  val="$(prompt_value "SAM.gov API Key" SAM_API_KEY "$current")"
+  [[ -n "$val" ]] && env_set SAM_API_KEY "$val"
+else
+  echo "   SAM.gov API Key: ${current:0:8}... (already set)"
 fi
-val="$(prompt_value "SAM.gov API Key" SAM_API_KEY "$current")"
-[[ -n "$val" ]] && env_set SAM_API_KEY "$val"
 
 # Microsoft Graph
 current_tenant="$(env_get MS_TENANT_ID)"
@@ -156,39 +160,55 @@ if [[ -z "$current_tenant" ]]; then
   echo ""
   echo "   Microsoft Graph credentials enable SharePoint integration."
   echo "   Leave blank to skip (can be added later)."
+  val="$(prompt_value "MS Graph Tenant ID" MS_TENANT_ID "$current_tenant")"
+  [[ -n "$val" ]] && env_set MS_TENANT_ID "$val"
+else
+  echo "   MS Graph Tenant ID: ${current_tenant:0:8}... (already set)"
 fi
-val="$(prompt_value "MS Graph Tenant ID" MS_TENANT_ID "$current_tenant")"
-[[ -n "$val" ]] && env_set MS_TENANT_ID "$val"
 
 current_client="$(env_get MS_CLIENT_ID)"
-val="$(prompt_value "MS Graph Client ID" MS_CLIENT_ID "$current_client")"
-[[ -n "$val" ]] && env_set MS_CLIENT_ID "$val"
+if [[ -z "$current_client" ]]; then
+  val="$(prompt_value "MS Graph Client ID" MS_CLIENT_ID "$current_client")"
+  [[ -n "$val" ]] && env_set MS_CLIENT_ID "$val"
+else
+  echo "   MS Graph Client ID: ${current_client:0:8}... (already set)"
+fi
 
 current_secret="$(env_get MS_CLIENT_SECRET)"
-val="$(prompt_value "MS Graph Client Secret" MS_CLIENT_SECRET "$current_secret")"
-[[ -n "$val" ]] && env_set MS_CLIENT_SECRET "$val"
+if [[ -z "$current_secret" ]]; then
+  val="$(prompt_value "MS Graph Client Secret" MS_CLIENT_SECRET "$current_secret")"
+  [[ -n "$val" ]] && env_set MS_CLIENT_SECRET "$val"
+else
+  echo "   MS Graph Client Secret: ${current_secret:0:8}... (already set)"
+fi
 
 current_sender="$(env_get MS_EMAIL_SENDER)"
 if [[ -z "$current_sender" ]]; then
   echo "   Email sender address enables invitation emails via Microsoft Graph."
   echo "   (e.g., noreply@yourcompany.com — must be a valid mailbox or shared mailbox)"
+  val="$(prompt_value "MS Graph Email Sender" MS_EMAIL_SENDER "$current_sender")"
+  [[ -n "$val" ]] && env_set MS_EMAIL_SENDER "$val"
+else
+  echo "   MS Graph Email Sender: ${current_sender:0:8}... (already set)"
 fi
-val="$(prompt_value "MS Graph Email Sender" MS_EMAIL_SENDER "$current_sender")"
-[[ -n "$val" ]] && env_set MS_EMAIL_SENDER "$val"
 
 # Embedding model selection
-current_embed="$(env_get LLM_EMBEDDING_MODEL "text-embedding-3-large")"
-echo ""
-echo "   Embedding model for semantic search:"
-echo "     1) text-embedding-3-large   (OpenAI, 3072 dims, default)"
-echo "     2) text-embedding-3-small   (OpenAI, 1536 dims)"
-echo "     3) amazon-titan-embed-text-v2:0  (AWS Bedrock, 1024 dims)"
-read -rp "  Embedding model [1/2/3] (default: 1): " embed_choice
-case "${embed_choice:-1}" in
-  2) env_set LLM_EMBEDDING_MODEL "text-embedding-3-small" ;;
-  3) env_set LLM_EMBEDDING_MODEL "amazon-titan-embed-text-v2:0" ;;
-  *) env_set LLM_EMBEDDING_MODEL "text-embedding-3-large" ;;
-esac
+current_embed="$(env_get LLM_EMBEDDING_MODEL)"
+if [[ -z "$current_embed" ]]; then
+  echo ""
+  echo "   Embedding model for semantic search:"
+  echo "     1) text-embedding-3-large   (OpenAI, 3072 dims, default)"
+  echo "     2) text-embedding-3-small   (OpenAI, 1536 dims)"
+  echo "     3) amazon-titan-embed-text-v2:0  (AWS Bedrock, 1024 dims)"
+  read -rp "  Embedding model [1/2/3] (default: 1): " embed_choice
+  case "${embed_choice:-1}" in
+    2) env_set LLM_EMBEDDING_MODEL "text-embedding-3-small" ;;
+    3) env_set LLM_EMBEDDING_MODEL "amazon-titan-embed-text-v2:0" ;;
+    *) env_set LLM_EMBEDDING_MODEL "text-embedding-3-large" ;;
+  esac
+else
+  echo "   Embedding model: ${current_embed} (already set)"
+fi
 
 echo ""
 
