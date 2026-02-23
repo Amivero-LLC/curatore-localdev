@@ -118,10 +118,31 @@ queue:
 # ============================================================================
 # Queue Type Settings
 # ============================================================================
+# Extraction queue uses a weighted concurrency model. max_concurrent is the
+# total weight budget, NOT a simple job count. Each queued extraction is
+# assigned a weight based on file type and size:
+#
+#   PDF weights (OCR risk — high memory):
+#     < 5 MB  → 2    5-10 MB → 3    10-20 MB → 6    > 20 MB → 8
+#
+#   Non-PDF weights (text extraction — low memory):
+#     < 5 MB  → 1    5-20 MB → 2    > 20 MB  → 3
+#
+# Examples with max_concurrent: 10 (default):
+#   - Ten small DOCX files (1 each)          → 10 weight, fits
+#   - One 15 MB PDF (6) + four small DOCX (4) → 10 weight, fits
+#   - Two 15 MB PDFs (6+6=12)                → exceeds 10, only one runs
+#
+# Tuning:
+#   - Lower max_concurrent if document-service OOM kills occur
+#   - Raise max_concurrent if the queue drains too slowly on small files
+#   - The queue skips heavy jobs that don't fit and submits lighter ones
+#     behind them, so a single large PDF won't block small file processing
+# ============================================================================
 queues:
   extraction:
-    max_concurrent: 7
-    timeout_seconds: 300
+    max_concurrent: 7       # Total weight budget (not job count). Default: 10
+    timeout_seconds: 300    # Per-job timeout in seconds
 
 # ============================================================================
 # MinIO / S3 Object Storage Configuration

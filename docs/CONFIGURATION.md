@@ -476,6 +476,29 @@ queues:
     timeout_seconds: 1800
 ```
 
+**Extraction Queue Weight Model:**
+
+The extraction queue's `max_concurrent` is a **weight budget**, not a simple job count. Each extraction is assigned a weight based on file type and size to prevent memory-intensive OCR jobs from overwhelming the document service:
+
+| File Type | < 5 MB | 5–10 MB | 10–20 MB | > 20 MB |
+|-----------|--------|---------|----------|---------|
+| **PDF** (OCR risk) | 2 | 3 | 6 | 8 |
+| **Non-PDF** (text extraction) | 1 | 2 | 2 | 3 |
+
+PDFs receive higher weights because they may require OCR, which consumes significantly more memory. The queue sums the weights of all active extractions and only submits new jobs when the total stays within `max_concurrent`.
+
+When a heavy job doesn't fit the remaining capacity, the queue **skips** it and looks for lighter jobs behind it. This prevents a single large PDF from blocking small file processing.
+
+**Tuning guidance:**
+
+| Symptom | Adjustment |
+|---------|------------|
+| Document service OOM kills on large PDFs | Lower `max_concurrent` (e.g., 5–7) |
+| Queue drains too slowly on small files | Raise `max_concurrent` (e.g., 12–15) |
+| Only one extraction runs at a time | Check if all files are large PDFs (weight 6–8 each); raise `max_concurrent` |
+
+See [Queue System — Weighted Concurrency](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/QUEUE_SYSTEM.md#weighted-concurrency-model) for full details.
+
 **Example:**
 ```yaml
 queue:
