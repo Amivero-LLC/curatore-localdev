@@ -87,6 +87,7 @@ The `getRelatedResources()` function computes ALL links for a run by combining:
 2. **Re-export**: Add to `app/core/tasks/__init__.py`
 3. **Queue registry**: Add entry in `app/core/ops/queue_registry.py` with queue name, timeout, capabilities
 4. **Run creation**: Task must create a Run record via `run_service.create_run()`
+5. **Dispatch with tracking**: Use `run_service.submit_to_celery(session, run, task, kwargs, queue)` instead of bare `task.delay()`. This sets `celery_task_id`, `submitted_to_celery_at`, `last_activity_at`, and `status="submitted"` on the Run for proper monitoring and recovery.
 
 ### Frontend
 
