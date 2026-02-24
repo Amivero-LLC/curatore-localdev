@@ -33,9 +33,10 @@ Route tasks to the correct domain:
 | Search, indexing, metadata, embeddings, facets | search-agent (backend) | Query builders, facet config, embedding models |
 | REST API endpoints, Pydantic schemas, auth, org context | api-agent (backend) | New endpoints, schema changes, permission rules |
 | Database models, Alembic migrations, prestart parity | migration-agent (backend) | New tables, migration scripts, seed data |
-| Frontend pages, components, TypeScript API client | Work in curatore-frontend/ | Pages, components, lib/api.ts updates |
-| MCP gateway, protocol conversion, delegated auth | Work in curatore-mcp-service/ | Tool exposure, policy rules |
-| Document extraction, triage, generation | Work in curatore-document-service/ | New extractors, format support |
+| Frontend pages, components, TypeScript API client | frontend-agent (curatore-frontend) | Pages, components, lib/api.ts updates |
+| MCP gateway, protocol conversion, delegated auth | mcp-service-agent (curatore-mcp-service) | Tool exposure, policy rules |
+| Document extraction, triage, generation | document-service-agent (curatore-document-service) | New extractors, format support |
+| Browser rendering, web scraping, bot evasion | playwright-service-agent (curatore-playwright-service) | Rendering strategies, content extraction |
 
 ### 3. Cross-Repo Coordination Patterns
 
