@@ -1729,7 +1729,7 @@ Primitive functions are single atomic operations. Most data connections need a *
 search_my_data — Search My Data records using hybrid full-text + semantic search.
 
 Returns thin summaries with relevance scores. Use get_content() to retrieve
-full content for LLM consumption.
+full content for LLM consumption (up to 10,000 characters per asset; use offset/limit to paginate).
 """
 from typing import Any, Dict, List, Optional
 import logging
@@ -1755,7 +1755,8 @@ class SearchMyDataFunction(BaseFunction):
         description=(
             "Search My Data records using full-text and semantic search. "
             "Returns record summaries with relevance scores. To read full content, "
-            "use get_content(asset_ids=[...]) with IDs from these results. "
+            "use get_content(asset_ids=[...]) with IDs from these results "
+            "(returns up to 10,000 characters per asset; use offset/limit to paginate). "
             "This searches My Data only — use discover_data_sources to see all "
             "available data sources and the appropriate search tool for each."
         ),
@@ -2170,7 +2171,8 @@ Example:
 description=(
     "Search document assets using full-text and semantic search. "
     "Returns document summaries with relevance scores. To read full document content, "
-    "use get_content(asset_ids=[...]) with IDs from these results. "
+    "use get_content(asset_ids=[...]) with IDs from these results "
+    "(returns up to 10,000 characters per asset; use offset/limit to paginate). "
     "This tool searches documents only — use discover_data_sources to see all available "
     "data sources and the appropriate search tool for each."
 )
@@ -3497,7 +3499,7 @@ data_sources:
           - category
           - facet_filters (cross-domain facets)
         next_steps:
-          - Use get_content(asset_ids=[...]) to read full document text
+          - Use get_content(asset_ids=[...]) to read full document text (up to 10,000 chars; use offset/limit to paginate)
           - Use get(item_type="my_source_record", item_id="...") for record details
     example_questions:
       - "Find all reports about cloud migration"

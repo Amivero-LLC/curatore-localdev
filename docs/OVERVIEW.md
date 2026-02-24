@@ -178,7 +178,10 @@ flowchart TD
 2. **Procedures** chain functions into multi-step workflows (YAML-defined)
 3. **Pipelines** chain procedures for complex processing
 4. **Contracts** are auto-derived from `FunctionMeta` — no manual contract files
-5. The AI procedure generator uses governance fields to place functions correctly:
+5. **`suggest_plan`** (UTILITY) is the agent entry point — given a goal, it detects intent/data-source/query-mode and returns a step-by-step tool plan using the live registry
+6. **Search modes**: `query="your terms"` for relevance-ranked text search; `query="*"` + `where`/`order_by` for structured listing and filtering
+7. **Pagination**: `get_content` returns up to 10,000 characters; use `offset`/`limit` to paginate larger documents (`has_more` flag indicates more pages)
+8. The AI procedure generator uses governance fields to place functions correctly:
    - `payload_profile="thin"` search → insert `get_content` before LLM steps
    - `side_effects=True` functions placed late in workflows
    - `send_email`/`webhook` guarded with conditionals
