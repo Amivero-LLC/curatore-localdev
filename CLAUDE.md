@@ -94,6 +94,87 @@ Services reference each other by Docker container name, **not** `localhost`:
 | `mcp` | `http://mcp:8020` | AI gateway |
 | `frontend` | `http://frontend:3000` | Web UI |
 
+## API Authentication Cheat Sheet
+
+Three auth methods — use the correct one on the **first call**. Do not trial-and-error.
+
+### Method 1: JWT (Frontend Users → Backend)
+
+```
+POST /api/v1/admin/auth/login
+Body: { "email_or_username": "...", "password": "..." }
+Response: { "access_token": "<JWT>", "refresh_token": "<JWT>", "token_type": "bearer", "expires_in": 3600 }
+```
+
+Then on all subsequent requests:
+```
+Authorization: Bearer <access_token>
+X-Organization-Id: <org-uuid>          # Required for org-scoped endpoints
+```
+
+- Access tokens expire in 60 min. Refresh via `POST /api/v1/admin/auth/refresh` with `{ "refresh_token": "..." }`
+- Frontend auto-refreshes every 50 min and dispatches `auth:unauthorized` on 401s
+
+### Method 2: API Key (Programmatic Access)
+
+```
+X-API-Key: cur_<64-hex-chars>
+X-Organization-Id: <org-uuid>          # Required for org-scoped endpoints
+```
+
+- API keys are created via the UI or API, shown only once, stored as bcrypt hash
+- Prefix `cur_` + 8-char prefix used for DB lookup, then full key is hash-verified
+
+### Method 3: Delegated Auth (Service-to-Service, e.g., MCP → Backend)
+
+**Incoming** (client → MCP gateway):
+```
+Authorization: Bearer <SERVICE_API_KEY>
+X-OpenWebUI-User-Email: alice@company.com
+X-Organization-Id: <org-uuid>          # Optional
+```
+
+**Outgoing** (MCP gateway → backend):
+```
+X-API-Key: <BACKEND_API_KEY>
+X-On-Behalf-Of: alice@company.com
+X-Correlation-ID: <uuid>
+```
+
+- Two separate keys: `SERVICE_API_KEY` (validates callers) vs `BACKEND_API_KEY` (authenticates to backend)
+- Backend resolves user by email, scopes data to their org(s)
+
+### Auth Priority Order (backend `get_current_user`)
+
+1. If `ENABLE_AUTH=false` → returns first admin user (dev only)
+2. JWT Bearer token (if `Authorization` header present)
+3. Delegated auth (`X-API-Key` + `X-On-Behalf-Of` headers)
+4. User API key (`X-API-Key` header alone)
+5. None → 401 Unauthorized
+
+### Critical Auth Rules for Agents
+
+| Rule | Why |
+|------|-----|
+| **Always obtain a token before making API calls** | Don't make unauthenticated calls expecting to "discover" the auth method from 401 responses |
+| **Use `X-Organization-Id` header for org-scoped endpoints** | Admin users have `organization_id=NULL` — org context must come from the header |
+| **Never use `current_user.organization_id` directly** | Use dependency functions: `get_effective_org_id`, `get_current_org_id`, `get_user_org_ids` |
+| **Extracted services use `Authorization: Bearer <SERVICE_API_KEY>`** | Document-service, playwright, MCP all follow this pattern; empty key = dev mode (no auth) |
+| **Refresh tokens before they expire** | Don't wait for a 401 — proactively refresh at 50 min (frontend) or track `expires_in` |
+| **Test auth uses mocked dependencies** | In pytest, override `get_current_user` with `mock_current_user` fixture — don't hit real auth |
+
+### Key Auth Files
+
+| File | Purpose |
+|------|---------|
+| `curatore-backend/backend/app/core/auth/auth_service.py` | JWT creation, password hashing, token decode |
+| `curatore-backend/backend/app/dependencies.py` | All auth dependency functions (get_current_user, get_effective_org_id, etc.) |
+| `curatore-backend/backend/docs/AUTH_ACCESS_MODEL.md` | Full auth & access control reference |
+| `curatore-frontend/lib/api.ts` | Frontend API client (auto-attaches Bearer + org headers) |
+| `curatore-frontend/lib/auth-context.tsx` | JWT lifecycle, auto-refresh, 401 handling |
+| `curatore-mcp-service/app/middleware/auth.py` | MCP gateway incoming auth validation |
+| `curatore-mcp-service/docs/DELEGATED_AUTH.md` | Delegated auth chain documentation |
+
 ## Cross-Service Development Rules
 
 1. **API changes cascade** — When changing backend API endpoints, update: frontend `lib/api.ts`, MCP service contract converter, and docs
@@ -118,6 +199,8 @@ Services reference each other by Docker container name, **not** `localhost`:
 6. **NEVER** assign users to `__system__` org — it's for CWR procedure ownership only.
 7. **NEVER** commit code without running `./scripts/dev-check.sh` (or the appropriate `--service=` variant) and confirming all phases pass. Fix failures before committing.
 8. **NEVER** suppress security findings (`# nosec`, `# noqa`) or skip tests (`@pytest.mark.skip`) without explicit justification in a comment explaining why.
+9. **NEVER** consider a push complete without verifying GitHub Actions CI passes — use `gh run list` / `gh run watch` to confirm.
+10. **NEVER** make API calls without first obtaining proper authentication — see [API Authentication Cheat Sheet](#api-authentication-cheat-sheet).
 
 ## Pre-Commit Quality Gates
 
@@ -184,6 +267,45 @@ When working inside a submodule, use `--service=` to target just that service:
 ### Reports
 
 All check results are written to `logs/quality_reports/<TIMESTAMP>/`. Review individual log files (e.g., `lint_backend.log`, `bandit_mcp.log`, `test_frontend.log`) for details on failures.
+
+## Post-Push CI Verification
+
+**After every push** to a submodule, verify GitHub Actions CI passes. Local `dev-check.sh` is necessary but not sufficient — CI runs in a clean Ubuntu environment that may catch issues local checks miss.
+
+### Verification Steps
+
+```bash
+# After pushing to a submodule, check CI status:
+gh run list --repo Amivero-LLC/<repo-name> --limit 5     # List recent runs
+gh run watch --repo Amivero-LLC/<repo-name>               # Watch current run
+gh run view <run-id> --repo Amivero-LLC/<repo-name> --log # View logs on failure
+```
+
+### CI Workflow Coverage
+
+Each submodule has a `.github/workflows/ci.yml` that runs on push to `main` and on PRs. CI must include **all three phases** matching `dev-check.sh`:
+
+| Phase | What Runs | CI Command |
+|-------|-----------|------------|
+| **Linting** | Ruff (Python) / ESLint (Frontend) | `ruff check app/ --line-length 120 --select E,F,W,I --ignore E501` |
+| **Security** | Bandit (SAST) | `bandit -r app/ -ll` |
+| **Tests** | pytest / Jest with coverage | `pytest tests/ -v --cov=app` |
+
+### CI vs Local Differences to Watch For
+
+| Issue | Why It Happens |
+|-------|---------------|
+| System dependency mismatch | CI uses Ubuntu; local may be macOS. LibreOffice, Tesseract, Playwright browsers differ |
+| Python version difference | CI pins 3.12; local may vary |
+| Missing env vars | CI has no `.env`; tests must work without real credentials |
+| Network-dependent tests | CI has no Docker services; mock all external calls |
+| Timing-sensitive failures | CI runners have variable performance; async tests may race |
+
+### Anti-Patterns
+
+9. **NEVER** consider a push complete without verifying CI passes — use `gh run list` / `gh run watch` to confirm.
+10. **NEVER** push code that only passes `dev-check.sh` locally without also verifying the submodule's GitHub Actions CI.
+11. **NEVER** merge a PR with failing CI checks — fix the failures first.
 
 ## Submodule Workflow
 
