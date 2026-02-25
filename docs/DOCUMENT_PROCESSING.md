@@ -46,12 +46,12 @@ Documents enter Curatore through multiple sources:
 
 | Source | Endpoint/Trigger | Source Type |
 |--------|------------------|-------------|
-| Manual Upload | `POST /api/v1/data/assets/upload/apply` | `upload` |
+| Manual Upload | `POST /api/v1/data/assets/upload/apply` | `file_library` |
 | SharePoint Sync | SharePoint sync job | `sharepoint` |
 | Web Scraping | Scrape collection crawl | `web_scrape` |
 | SAM.gov | SAM pull job | `sam_gov` |
 
-**Upload Libraries & Folders**: All manually uploaded files must be associated with an upload library. Libraries (e.g., "General", "Policy Documents") organize uploads with optional hierarchical sub-folders. Upload endpoints require a resolved library — either via explicit `library_id` parameter or the organization's default library. If an explicit `library_id` is provided that does not belong to the user's organization, the API returns HTTP 400. If no `library_id` is provided and no default library exists, the API also returns HTTP 400. The `storage_folder` in asset `source_metadata` is set to `file-libraries/{library_slug}` (or `file-libraries/{library_slug}/{folder_path}` with a folder). MinIO object keys include the library slug: `{org_id}/file-libraries/{library_slug}/{doc_id}-{filename}`. The folder hierarchy within a library is metadata-only — sub-folder organization does not change the MinIO path.
+**File Libraries & Folders**: All manually uploaded files must be associated with a file library. Libraries (e.g., "General", "Policy Documents") organize uploads with optional hierarchical sub-folders. Upload endpoints require a resolved library — either via explicit `library_id` parameter or the organization's default library. If an explicit `library_id` is provided that does not belong to the user's organization, the API returns HTTP 400. If no `library_id` is provided and no default library exists, the API also returns HTTP 400. The `storage_folder` in asset `source_metadata` is set to `file-libraries/{library_slug}` (or `file-libraries/{library_slug}/{folder_path}` with a folder). MinIO object keys include the library slug: `{org_id}/file-libraries/{library_slug}/{doc_id}-{filename}`. The folder hierarchy within a library is metadata-only — sub-folder organization does not change the MinIO path.
 
 **What Happens**:
 1. File uploaded to MinIO (`curatore-original` bucket) at `{org_id}/file-libraries/{library_slug}/{doc_id}-{filename}`
@@ -227,7 +227,7 @@ WHERE er.triage_needs_ocr = true;
 
 ## Asset Deletion (Cascade Cleanup)
 
-When an asset is deleted — either individually via `DELETE /api/v1/assets/{id}` or in bulk via `POST /api/v1/data/upload-libraries/{id}/assets/delete` — the following cleanup cascade occurs:
+When an asset is deleted — either individually via `DELETE /api/v1/assets/{id}` or in bulk via `POST /api/v1/data/file-libraries/{id}/assets/delete` — the following cleanup cascade occurs:
 
 1. **Search index chunks** — Deleted via `pg_index_service.delete_asset_index()`. Removes all `search_chunks` rows for the asset.
 2. **Artifact files** — All artifact files (original upload, processed versions) deleted from MinIO, then artifact DB records deleted.
@@ -241,10 +241,10 @@ Steps 1–3 are wrapped in try/except to ensure partial storage failures don't b
 
 ### Folder Deletion (Cascade)
 
-When a folder is deleted via `DELETE /api/v1/data/upload-libraries/{id}/folders/{folder_id}`, the same asset cleanup cascade runs for all assets in the folder and all sub-folders:
+When a folder is deleted via `DELETE /api/v1/data/file-libraries/{id}/folders/{folder_id}`, the same asset cleanup cascade runs for all assets in the folder and all sub-folders:
 
 1. Collect all descendant folder IDs via path prefix match (`path LIKE 'folder.path/%'`)
-2. Collect all asset IDs where `source_metadata["upload"]["folder_id"]` is in those folder IDs
+2. Collect all asset IDs where `source_metadata["file_library"]["folder_id"]` is in those folder IDs
 3. Run the asset cleanup cascade (search index → MinIO → extraction results → DB) for each asset
 4. Delete folder records (CASCADE on `parent_id` FK handles sub-folder rows)
 
