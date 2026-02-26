@@ -141,7 +141,7 @@ queue:
 # ============================================================================
 queues:
   extraction:
-    max_concurrent: 7       # Total weight budget (not job count). Default: 10
+    max_concurrent: 12      # Total weight budget (not job count). Default: 10
     timeout_seconds: 300    # Per-job timeout in seconds
 
 # ============================================================================
