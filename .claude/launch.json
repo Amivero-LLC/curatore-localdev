@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Full Stack (Docker)",
+      "runtimeExecutable": "./scripts/dev-up.sh",
+      "runtimeArgs": ["--with-postgres"],
+      "port": 3000
+    },
+    {
+      "name": "Frontend (Next.js)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}
