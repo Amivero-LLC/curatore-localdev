@@ -1,0 +1,376 @@
+# Document Type Taxonomy — domain > category > type hierarchy.
+#
+# Global baseline loaded at startup and synced to the document_type_taxonomy
+# table. Orgs can add custom types via DB records (organization_id != NULL).
+#
+# The taxonomy drives:
+# - Two-stage LLM classification (Phase 3): domain first, then class
+# - Document domain/category facets for hierarchical filtering
+# - Source type hints for classification accuracy
+#
+# Class entry formats:
+#   - String: class with no description or subclasses (discouraged)
+#   - Dict:   {ClassName: {description: "...", subclasses: [...]}}
+
+taxonomy:
+  version: "1.0"
+  domains:
+    federal_acquisition:
+      display_name: "Federal Acquisition"
+      description: "Government-issued procurement documents across the federal acquisition lifecycle (FAR/CFR Title 48)"
+      source_type_hints: [sam_gov]
+      categories:
+        forecasts_planning:
+          display_name: "Forecasts & Acquisition Planning"
+          description: "Agency procurement forecasts and acquisition planning documents that signal upcoming contracting opportunities"
+          lifecycle_phase: "Planning"
+          classes:
+            - Annual Procurement Forecast:
+                description: "Agency forecast of upcoming contract opportunities published per FAR 5.404."
+            - Acquisition Plan:
+                description: "Written acquisition plan per FAR 7.105 containing acquisition background, objectives, milestones, contract type rationale, and source selection approach."
+        pre_solicitation_notices:
+          display_name: "Pre-Solicitation Notices"
+          description: "Market research and advance notices published before formal solicitations to identify potential sources and gather industry input"
+          lifecycle_phase: "Pre-Solicitation"
+          classes:
+            - Sources Sought Notice:
+                description: "Market research notice published on SAM.gov to identify potential sources and determine if set-asides are appropriate."
+            - Request for Information (RFI):
+                description: "Non-binding government request for industry input on technical approaches, pricing structures, or other information."
+            - Presolicitation Notice:
+                description: "Advance notice published at least 15 days before solicitation issuance per FAR 5.204."
+            - Special Notice:
+                description: "Informational notices including industry days, draft RFP releases, and other non-binding communications published on SAM.gov."
+        solicitation_documents:
+          display_name: "Solicitation Documents"
+          description: "Formal government requests for proposals, quotes, and related amendments and Q&A documents"
+          lifecycle_phase: "Solicitation"
+          classes:
+            - Solicitation:
+                description: "Government-issued solicitation documents including RFPs, RFQs, BAAs, and associated attachments (e.g., CDRLs, evaluation criteria, Section L/M). The formal request for offers/proposals/quotes."
+            - Combined Synopsis/Solicitation:
+                description: "Combined notice and solicitation for commercial items per FAR 12.603."
+            - Solicitation Amendment:
+                description: "Modification to an active solicitation that changes dates, requirements, evaluation criteria, or incorporates Q&A responses."
+            - Solicitation Q&A:
+                description: "Government-issued Q&A documents, answers to industry questions, and Frequently Asked Questions released during the solicitation period."
+        requirement_descriptions:
+          display_name: "Requirement Descriptions"
+          description: "Government-authored statements defining the work, performance objectives, or desired outcomes for a procurement"
+          lifecycle_phase: "Solicitation"
+          classes:
+            - Statement of Work:
+                description: "Government-issued Statement of Work (SOW) specifying detailed tasks, methods, and deliverables."
+            - Performance Work Statement (PWS):
+                description: "Performance-based requirement description specifying WHAT results are expected, not HOW to achieve them."
+            - Statement of Objectives (SOO):
+                description: "Broad statement of government goals and desired outcomes."
+        post_award_notices:
+          display_name: "Post-Award Notices"
+          description: "Public notices related to contract awards, sole-source justifications, and solicitation cancellations"
+          lifecycle_phase: "Award"
+          classes:
+            - Award Notice:
+                description: "Public notice of contract award published on SAM.gov."
+            - Justification & Approval (J&A):
+                description: "Written justification for sole source or limited competition procurement per FAR 6.305."
+            - Cancellation Notice:
+                description: "Notice that a solicitation has been cancelled before award."
+        contract_instruments:
+          display_name: "Contract Instruments"
+          description: "Government contract awards, task orders, and modifications that establish or amend contractual obligations"
+          lifecycle_phase: "Award"
+          classes:
+            - Contract:
+                description: "Executed contract instruments including base awards, BPAs, IDIQs, GWACs, GSA Schedule contracts, and associated modifications or option exercises."
+            - Task Order:
+                description: "Task orders, delivery orders, BPA calls, or orders placed against an IDIQ/GWAC/BPA vehicle, including associated modifications."
+            - Modification:
+                description: "Contract modification (mod) that amends an existing contract."
+        post_award_admin:
+          display_name: "Post-Award Administration"
+          description: "Government oversight documents for monitoring and evaluating contractor performance during contract execution"
+          lifecycle_phase: "Performance"
+          classes:
+            - Quality Assurance Surveillance Plan (QASP):
+                description: "Government's plan for monitoring and evaluating contractor performance."
+    contractor_response:
+      display_name: "Contractor Response"
+      description: "Contractor-authored documents for capture, proposals, teaming, and contract performance"
+      source_type_hints: [file_library, sharepoint]
+      categories:
+        capture_pipeline:
+          display_name: "Capture & Pipeline"
+          description: "Market research artifacts and capture strategy documents used to identify, qualify, and pursue contract opportunities"
+          lifecycle_phase: "Planning"
+          classes:
+            - Market Research:
+                description: "Market research artifacts including agency spend analyses, GovWin/SAM.gov opportunity reports, incumbent research, FPDS pulls, and budget/appropriations analysis used to inform pipeline decisions."
+            - Capture Strategy:
+                description: "Capture and pursuit artifacts including capture plans, gate review briefings, win theme development, competitive assessments (Black Hat/Blue Hat), price-to-win analyses, teaming/partner evaluations, call plan notes, and customer engagement summaries."
+        teaming_agreements:
+          display_name: "Teaming & Agreements"
+          description: "Pre-award partnering documents establishing teaming relationships, joint ventures, and confidentiality obligations between contractors"
+          lifecycle_phase: "Pre-Solicitation"
+          classes:
+            - Teaming Agreement:
+                description: "Teaming agreements (TAs) and pre-award partnering documents between a prime contractor and subcontractor."
+            - Contract Teaming Agreement:
+                description: "Formalized teaming arrangement between prime and subcontractor required for proposal submission per FAR 9.6."
+            - Joint Venture Agreement:
+                description: "Joint venture entity agreement typically formed for small business set-aside procurements."
+            - Non-Disclosure Agreement (NDA):
+                description: "Executed non-disclosure agreements (NDAs) governing the exchange and protection of proprietary or confidential information between parties."
+            - Subcontractor Commitment Letter:
+                description: "Letter from a subcontractor confirming commitment, availability, and willingness to participate."
+        pre_award_responses:
+          display_name: "Pre-Award Responses"
+          description: "Contractor-submitted responses to pre-solicitation inquiries including RFIs, sources sought, and concept papers"
+          lifecycle_phase: "Pre-Solicitation"
+          classes:
+            - Capability Statement:
+                description: "Company capability statements, qualifications briefs, one-pagers, or similar marketing collateral used to position the company with government customers or teaming partners."
+            - RFI Response:
+                description: "Company-submitted response to a government Request for Information (RFI) or Sources Sought Notice."
+            - White Paper:
+                description: "A concept paper, white paper, or abstract submitted in response to a BAA, CSO, or other pre-proposal inquiry."
+        proposal_volumes:
+          display_name: "Proposal Volumes"
+          description: "Formal proposal submissions and individual proposal volumes prepared in response to government solicitations"
+          lifecycle_phase: "Solicitation"
+          classes:
+            - Proposal Response:
+                description: "A formal proposal submission in response to a solicitation, including any volume: technical/management approach, staffing/key personnel, past performance volume, cost/price volume, oral presentation materials, or sample task responses."
+            - Technical Volume:
+                description: "Proposal volume presenting the technical approach, methodology, staffing plan, tools, and solution design."
+            - Management Volume:
+                description: "Proposal volume presenting project management methodology, transition approach, risk management."
+            - Past Performance Volume:
+                description: "Proposal volume presenting relevant past contract experiences and CPARS references."
+            - Pricing & Cost Data:
+                description: "Standalone cost models, basis of estimates (BOEs), rate builds, wrap rate calculations, subcontractor quotes, or price analysis workbooks."
+        award_phase:
+          display_name: "Award Phase"
+          description: "Post-award contractor documents including executed subcontracts and required small business plans"
+          lifecycle_phase: "Award"
+          classes:
+            - Executed Subcontract:
+                description: "Formal subcontract agreement executed after contract award."
+            - Small Business Subcontracting Plan:
+                description: "Required plan for contracts exceeding $750K detailing small business subcontracting opportunities."
+        contract_deliverables:
+          display_name: "Contract Deliverables & Reporting"
+          description: "Work products, technical reports, and recurring status reports delivered under contract performance"
+          lifecycle_phase: "Performance"
+          classes:
+            - Contract Deliverable:
+                description: "A deliverable produced under contract such as a technical report, systems engineering artifact, program/project plan, transition plan, or final deliverable."
+            - Status Report:
+                description: "Recurring program/project status reports, monthly/weekly reports, SIPRs, CDR/SDR outputs, financial status reports, or EVM deliverables."
+            - Lessons Learned:
+                description: "Post-award debriefs, win/loss analyses, lessons learned reports, or after-action reviews from capture or proposal efforts."
+            - Contractor Performance Report:
+                description: "Self-assessment or government-directed performance report for CPARS."
+        performance_reporting:
+          display_name: "Performance Records"
+          description: "Historical past performance narratives, CPARS records, and reference documentation supporting future proposals"
+          lifecycle_phase: "Performance"
+          classes:
+            - Past Performance:
+                description: "Standalone past performance narratives, CPARS/PPQs, project descriptions, or reference documentation used to support proposals or capture efforts."
+        change_responses:
+          display_name: "Change Responses"
+          description: "Contractor-initiated responses to task order requests, engineering changes, and equitable adjustment claims during performance"
+          lifecycle_phase: "Performance"
+          classes:
+            - Task Order Response:
+                description: "Contractor's response to a task order request under an IDIQ, BPA, or GWAC vehicle."
+            - Engineering Change Proposal:
+                description: "Contractor proposal to modify technical requirements during contract performance."
+            - Request for Equitable Adjustment:
+                description: "Formal contractor request for cost or schedule adjustment due to government-caused changes."
+    human_resources:
+      display_name: "Human Resources"
+      description: "Recruiting, benefits, compliance, and employee management"
+      categories:
+        talent:
+          display_name: "Talent & Development"
+          description: "Recruiting, onboarding, and professional development documents for workforce management"
+          classes:
+            - Recruiting & Staffing:
+                description: "Job postings, candidate tracking, interview guides, hiring justifications, and staffing plans."
+            - Employee Onboarding:
+                description: "New hire checklists, onboarding schedules, orientation materials, and first-day documentation."
+            - Training & Certifications:
+                description: "Training plans, certification records, continuing education documentation, and professional development materials."
+        records:
+          display_name: "Records & Policy"
+          description: "Personnel records, compliance documentation, and HR policies governing the employee lifecycle"
+          classes:
+            - Employee Records & Compliance:
+                description: "Personnel files, I-9 forms, EEO reports, FLSA records, and employment eligibility documentation."
+            - HR Policy:
+                description: "Human resources policies, employee handbooks, standard operating procedures, and workplace guidelines."
+        compensation:
+          display_name: "Compensation & Benefits"
+          description: "Payroll, timekeeping, benefits enrollment, and leave administration documents"
+          classes:
+            - Payroll Processing:
+                description: "Payroll registers, tax withholding forms, direct deposit authorizations, and pay stub records."
+            - Timesheet & Labor Charging:
+                description: "Timesheets, labor charge codes, time tracking reports, and labor distribution summaries."
+            - Benefits Enrollment & Administration:
+                description: "Open enrollment guides, benefits summaries, plan comparison worksheets, and enrollment forms."
+            - Health & Wellness Benefits:
+                description: "Health plan documents, wellness program materials, HSA/FSA documentation, and preventive care resources."
+            - Retirement & Financial Benefits:
+                description: "401(k) plan documents, pension summaries, financial wellness materials, and retirement planning guides."
+            - Leave Administration:
+                description: "PTO policies, FMLA documentation, leave request forms, and leave tracking records."
+            - Workers Compensation & Safety:
+                description: "Workers comp claims, OSHA records, safety incident reports, and workplace safety plans."
+    finance:
+      display_name: "Finance & Accounting"
+      description: "Payroll, AP/AR, budgeting, audit, and subcontractor management"
+      categories:
+        operations:
+          display_name: "Operations"
+          description: "Day-to-day financial operations including accounts payable, receivable, and invoicing workflows"
+          classes:
+            - Accounts Payable:
+                description: "Invoices, purchase orders, payment vouchers, vendor statements, and AP aging reports."
+            - Accounts Receivable & Invoicing:
+                description: "Customer invoices, billing statements, AR aging reports, and collections correspondence."
+        reporting:
+          display_name: "Reporting & Compliance"
+          description: "Financial statements, budgets, forecasts, and audit documentation for fiscal compliance and planning"
+          classes:
+            - Financial Reporting:
+                description: "Financial statements, management reports, variance analyses, and financial dashboards."
+            - Budget & Forecasting:
+                description: "Budget proposals, financial forecasts, spend plans, and budget-to-actual analyses."
+            - Audit & Compliance (Finance):
+                description: "Audit reports, compliance checklists, DCAA audit documentation, and internal control assessments."
+        subcontracts:
+          display_name: "Subcontractor Management"
+          description: "Subcontractor agreements, performance monitoring, and consent-to-subcontract documentation"
+          classes:
+            - Subcontractor Management:
+                description: "Subcontractor agreements, performance monitoring, consent to subcontract forms, and subcontractor deliverables."
+    it_operations:
+      display_name: "IT & Technology"
+      description: "Infrastructure, security, helpdesk, and IT governance"
+      categories:
+        support:
+          display_name: "Support & Assets"
+          description: "IT helpdesk support tickets, hardware/software inventories, and asset lifecycle management"
+          classes:
+            - IT Helpdesk Ticket:
+                description: "IT support tickets, incident reports, service requests, and resolution documentation."
+            - IT Asset Management:
+                description: "Hardware/software inventories, asset tracking records, license management, and disposal documentation."
+        security:
+          display_name: "Security & Access"
+          description: "IT security assessments, access control documentation, and incident response records"
+          classes:
+            - IT Security & Access:
+                description: "Access control requests, security assessments, vulnerability scans, and incident response records."
+        governance:
+          display_name: "Policy & Architecture"
+          description: "IT policies, standard operating procedures, and system architecture documentation"
+          classes:
+            - IT Policy & SOP:
+                description: "IT policies, standard operating procedures, acceptable use policies, and technology standards."
+            - IT Infrastructure & Architecture:
+                description: "Network diagrams, system architecture documents, infrastructure plans, and capacity planning."
+    corporate:
+      display_name: "Corporate & Legal"
+      description: "Governance, certifications, legal, insurance, and compliance"
+      categories:
+        governance:
+          display_name: "Governance & Filings"
+          description: "Corporate governance documents, business registrations, certifications, and tax filings"
+          classes:
+            - Corporate Governance:
+                description: "Board minutes, corporate bylaws, governance policies, and organizational structure documentation."
+            - Corporate Certifications & Registrations:
+                description: "SAM.gov registrations, small business certifications (8(a), HUBZone, SDVOSB), and corporate registrations."
+            - Tax & Entity Filings:
+                description: "Tax returns, entity formation documents, state filings, and tax compliance records."
+        legal:
+          display_name: "Legal & Risk"
+          description: "Corporate legal agreements, insurance policies, and risk management documentation"
+          classes:
+            - Corporate Legal Agreements:
+                description: "Corporate contracts, partnership agreements, licensing agreements, and legal correspondence."
+            - Insurance & Risk Management:
+                description: "Insurance certificates, risk assessments, claims documentation, and coverage summaries."
+        compliance:
+          display_name: "Ethics & Facilities"
+          description: "Ethics and compliance programs, facility security, and physical access management"
+          classes:
+            - Ethics & Compliance Program:
+                description: "Ethics policies, compliance training materials, whistleblower procedures, and conflict of interest disclosures."
+            - Facilities & Physical Security:
+                description: "Facility access logs, physical security plans, building maintenance records, and space planning documents."
+    marketing:
+      display_name: "Marketing & Communications"
+      description: "Strategy, digital, content, events, PR, and brand"
+      categories:
+        strategy:
+          display_name: "Strategy & Digital"
+          description: "Marketing strategy, campaign planning, and digital marketing initiatives including social media"
+          classes:
+            - Marketing Strategy & Campaigns:
+                description: "Marketing plans, campaign briefs, market analysis reports, and competitive positioning materials."
+            - Digital Marketing & Social Media:
+                description: "Social media strategies, digital advertising plans, analytics reports, and online content calendars."
+        content:
+          display_name: "Content & Case Studies"
+          description: "Thought leadership content, client case studies, and brand asset management"
+          classes:
+            - Content & Thought Leadership:
+                description: "Blog posts, articles, whitepapers, and subject matter expert publications for thought leadership."
+            - Case Studies & Success Stories:
+                description: "Client success stories, project case studies, and results-focused marketing narratives."
+            - Website & Brand Assets:
+                description: "Website content, brand guidelines, logo assets, and visual identity standards."
+        external:
+          display_name: "Events & PR"
+          description: "Conference materials, event planning, press releases, and public relations activities"
+          classes:
+            - Event & Conference Materials:
+                description: "Conference presentations, booth materials, event sponsorship documents, and attendee engagement plans."
+            - Public Relations & Media:
+                description: "Press releases, media kits, spokesperson briefings, and media coverage reports."
+        internal:
+          display_name: "Internal Communications"
+          description: "Company-wide announcements, newsletters, and employee engagement communications"
+          classes:
+            - Internal Communications:
+                description: "Company newsletters, all-hands meeting materials, internal announcements, and employee engagement content."
+    operations:
+      display_name: "Operations & Program Management"
+      description: "QA, program management, transitions"
+      categories:
+        delivery:
+          display_name: "Delivery & Quality"
+          description: "Quality assurance, program management oversight, and contract transition/turnover planning"
+          classes:
+            - Quality Assurance:
+                description: "QA plans, inspection reports, quality metrics, process improvement documentation, and audit findings."
+            - Program Management:
+                description: "Program plans, milestone schedules, risk registers, and program status documentation."
+            - Transition & Turnover:
+                description: "Transition plans, knowledge transfer documentation, phase-in/phase-out plans, and turnover checklists."
+    other:
+      display_name: "Other"
+      description: "Documents that don't fit established categories"
+      categories:
+        uncategorized:
+          display_name: "Uncategorized"
+          description: "Documents that do not clearly fit any other domain, category, or class"
+          classes:
+            - Other:
+                description: "Does not clearly fit any other category. Flag for manual review and potential taxonomy expansion."

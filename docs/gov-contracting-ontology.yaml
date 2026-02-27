@@ -1,0 +1,1187 @@
+# =============================================================================
+# Government Contracting Document Type Ontology v4
+# =============================================================================
+# A two-sided data ontology mapping government-issued documents and
+# contractor response documents across the federal acquisition lifecycle.
+#
+# Governed by: Federal Acquisition Regulation (FAR), CFR Title 48
+# Platform: SAM.gov (Governmentwide Point of Entry)
+# =============================================================================
+
+ontology:
+  name: Government Contracting Document Type Ontology
+  version: "4.0"
+  domain: Federal Acquisition
+  governing_regulation: FAR (CFR Title 48, Parts 1-53)
+  primary_platform: SAM.gov
+
+  # ===========================================================================
+  # TAXONOMY PROPERTIES
+  # ===========================================================================
+  taxonomy_properties:
+    prescriptiveness:
+      description: >
+        The degree to which a requirement description document specifies
+        HOW work is to be performed vs. WHAT outcomes are expected.
+      scale:
+        low: Statement of Objectives (SOO)
+        medium: Performance Work Statement (PWS)
+        high: Statement of Work (SOW)
+
+    document_origin:
+      values:
+        - government
+        - contractor
+
+    lifecycle_phase:
+      values:
+        - planning
+        - pre_solicitation
+        - solicitation
+        - evaluation
+        - award
+        - post_award
+
+  # ===========================================================================
+  # GOVERNMENT-ISSUED DOCUMENTS
+  # ===========================================================================
+  government_documents:
+    label: Federal Acquisition
+    abbreviation: FAR
+    type: domain_root
+    description: >
+      The overarching domain of U.S. federal government procurement and
+      contracting, governed by the Federal Acquisition Regulation (FAR).
+    references:
+      - FAR Parts 1-53
+      - CFR Title 48
+    platform: SAM.gov (GPE)
+
+    children:
+
+      # -----------------------------------------------------------------------
+      # FORECASTS & ACQUISITION PLANNING
+      # -----------------------------------------------------------------------
+      - label: Forecasts & Acquisition Planning
+        abbreviation: FCST
+        type: category
+        lifecycle_phase: planning
+        description: >
+          FAR Part 7 requires agencies to perform acquisition planning and
+          develop written acquisition plans. Agencies publish annual procurement
+          forecasts identifying anticipated contract actions, giving industry
+          advance visibility into upcoming requirements. These forecasts are a
+          critical early-stage signal for contractor pipeline and capture planning.
+        references:
+          - FAR Part 7
+          - FAR 7.102 (Policy)
+          - FAR 7.105 (Written Plans)
+
+        children:
+
+          - label: Annual Procurement Forecast
+            abbreviation: APF
+            type: class
+            description: >
+              Each federal agency publishes an annual forecast of expected contract
+              opportunities. Required to include anticipated requirements, NAICS
+              codes, estimated values, expected solicitation dates, set-aside
+              status, and points of contact.
+            references:
+              - FAR 5.404
+              - FAR 7.102
+            published_on:
+              - Agency websites
+              - SAM.gov
+            frequency: Annual, updated on a rolling basis
+            contractor_response: Pipeline entry / Capture trigger
+
+            children:
+
+              - label: Planned Requirement Entry
+                abbreviation: PRE
+                type: subclass
+                description: >
+                  Individual line item in a forecast. Typically includes
+                  description of requirement, estimated dollar value, anticipated
+                  solicitation quarter, NAICS code, set-aside status (SB, 8(a),
+                  SDVOSB, etc.), contract type, and contracting office POC.
+                data_type: structured_record
+
+          - label: Acquisition Plan
+            abbreviation: AP
+            type: class
+            description: >
+              Written acquisition plans developed per FAR 7.105 containing
+              acquisition background, objectives, milestones, contract type
+              rationale, source selection approach, and budgeting. Generally
+              not published externally but shapes all downstream solicitation
+              documents.
+            references:
+              - FAR 7.105
+            visibility: Government-internal (not publicly released)
+            downstream_outputs:
+              - SOW
+              - PWS
+              - SOO
+
+      # -----------------------------------------------------------------------
+      # NOTICES (SAM.GOV / GPE)
+      # -----------------------------------------------------------------------
+      - label: Notices
+        abbreviation: NTC
+        type: category
+        description: >
+          FAR Part 5 requires agencies to publicize contract actions through the
+          Governmentwide Point of Entry (GPE) at SAM.gov. Notices communicate
+          opportunity status throughout the acquisition lifecycle — from intent
+          to award, amendments, and post-award actions.
+        references:
+          - FAR Part 5
+        platform: SAM.gov (Contract Opportunities)
+        mandatory_threshold: "> $25,000"
+
+        children:
+
+          # --- Pre-Solicitation Notices ---
+          - label: Pre-Solicitation Notices
+            abbreviation: PREN
+            type: class
+            lifecycle_phase: pre_solicitation
+            description: >
+              Notices published before a formal solicitation is issued. Used to
+              gauge industry interest, conduct market research, and shape
+              requirements.
+            references:
+              - FAR 5.204
+
+            children:
+
+              - label: Sources Sought Notice
+                abbreviation: SSN
+                type: subclass
+                description: >
+                  Published to identify potential sources and determine if
+                  set-asides are appropriate. Asks industry to submit capability
+                  statements. Often the first public signal of an upcoming
+                  requirement.
+                references:
+                  - FAR 10.002
+                contractor_response: RFI Response / Capability Statement
+
+              - label: Request for Information (RFI)
+                abbreviation: RFI
+                type: subclass
+                description: >
+                  Used to collect information from industry on technical
+                  approaches, pricing structures, or other inputs to help the
+                  government refine requirements. Non-binding. Often includes
+                  specific questions.
+                references:
+                  - FAR Part 10
+                binding: false
+                contractor_response: RFI Response
+
+              - label: Presolicitation Notice
+                abbreviation: PSN
+                type: subclass
+                description: >
+                  Published at least 15 days before solicitation issuance per
+                  FAR 5.204. Provides advance notice of the government's intent
+                  to solicit. Includes estimated dates, NAICS, and general scope.
+                references:
+                  - FAR 5.204
+                timing: ">= 15 days before solicitation"
+
+              - label: Special Notice
+                abbreviation: SPN
+                type: subclass
+                description: >
+                  Catch-all notice type for industry days, draft RFP releases,
+                  informational sessions, and other non-binding communications
+                  that don't fit other categories.
+                binding: false
+
+          # --- Solicitation Notices ---
+          - label: Solicitation Notices
+            abbreviation: SOLN
+            type: class
+            lifecycle_phase: solicitation
+            description: >
+              The formal posting of a solicitation on SAM.gov, making
+              requirements and evaluation criteria publicly available for
+              contractor response.
+            references:
+              - FAR 5.201
+
+            children:
+
+              - label: Synopsis / Solicitation
+                abbreviation: SYN
+                type: subclass
+                description: >
+                  Standard posting of a solicitation for supplies or services.
+                  Must include description, due dates, NAICS, set-aside info,
+                  and contact information. Solicitation documents (including
+                  SOW/PWS/SOO) are attached.
+                references:
+                  - FAR 5.207
+                contractor_response: Proposal
+
+              - label: Combined Synopsis/Solicitation
+                abbreviation: CSS
+                type: subclass
+                description: >
+                  For commercial item acquisitions, combines the synopsis and
+                  solicitation into a single notice. Reduces acquisition timeline.
+                references:
+                  - FAR 12.603
+                  - FAR 13.5
+
+              - label: Amendment / Modification Notice
+                abbreviation: AMD
+                type: subclass
+                description: >
+                  Published when the government modifies an active solicitation —
+                  changing due dates, requirements, evaluation criteria, or
+                  answering questions. May trigger proposal revisions.
+                triggers: Proposal revision
+
+          # --- Post-Solicitation Notices ---
+          - label: Post-Solicitation Notices
+            abbreviation: PSTN
+            type: class
+            lifecycle_phase:
+              - evaluation
+              - award
+              - post_award
+            description: >
+              Notices published after the solicitation period closes, including
+              award announcements, cancellations, and administrative notices.
+            references:
+              - FAR 5.301
+              - FAR 5.303
+
+            children:
+
+              - label: Award Notice
+                abbreviation: AWN
+                type: subclass
+                description: >
+                  Published within 30 days of contract award for actions > $25K.
+                  Includes awardee name, contract value, and contract details.
+                  For non-competitive or non-fixed-price awards, must include
+                  rationale.
+                references:
+                  - FAR 5.301
+                  - FAR 5.303
+                timing: "<= 30 days post-award"
+
+              - label: Justification & Approval (J&A) Notice
+                abbreviation: JAN
+                type: subclass
+                description: >
+                  Published when a contract is awarded without full and open
+                  competition. Required to be posted on SAM.gov per FAR 6.305.
+                  Includes the legal authority and justification.
+                references:
+                  - FAR 6.305
+                  - FAR 6.302
+
+              - label: Cancellation Notice
+                abbreviation: CXL
+                type: subclass
+                description: >
+                  Published when a solicitation is cancelled before award. May
+                  indicate requirements are being re-scoped or funding was lost.
+
+              - label: IDV / Order Notice
+                abbreviation: IDV
+                type: subclass
+                description: >
+                  Notices for task orders or delivery orders placed against
+                  indefinite-delivery vehicles (IDIQ, BPA, GWACs). Includes
+                  fair opportunity notices for orders > $25K.
+                references:
+                  - FAR 16.505
+
+      # -----------------------------------------------------------------------
+      # PRE-AWARD DOCUMENTS (Solicitation Content)
+      # -----------------------------------------------------------------------
+      - label: Pre-Award Documents
+        abbreviation: PRE
+        type: category
+        lifecycle_phase: solicitation
+        description: >
+          The substantive documents contained within or attached to solicitation
+          notices, including requirement descriptions, evaluation criteria, and
+          offeror instructions.
+        references:
+          - FAR Part 15
+        delivery_mechanism: SAM.gov notices (attachments)
+
+        children:
+
+          - label: Solicitation Documents
+            abbreviation: SOL
+            type: class
+            description: >
+              The formal solicitation package including all sections (A-M for
+              UCF format). Contains the requirement descriptions, terms,
+              instructions, and evaluation criteria.
+            references:
+              - FAR Part 15.2
+              - FAR Part 14
+            format: Uniform Contract Format (UCF)
+
+            children:
+
+              - label: Requirement Description Documents
+                abbreviation: REQ
+                type: subclass
+                ucf_section: Section C
+                description: >
+                  Documents defining what the government needs. Central to
+                  contract scope. Found in Section C of the UCF. These are
+                  what the contractor's technical volume responds to.
+                references:
+                  - FAR 37.6
+                key_property: prescriptiveness
+
+                children:
+
+                  - label: Statement of Work
+                    abbreviation: SOW
+                    type: instance
+                    prescriptiveness: high
+                    description: >
+                      Tells the contractor HOW to perform the work. Specifies
+                      detailed tasks, methodologies, and deliverables.
+                    references:
+                      - FAR 37.602
+
+                  - label: Performance Work Statement
+                    abbreviation: PWS
+                    type: instance
+                    prescriptiveness: medium
+                    description: >
+                      Tells the contractor WHAT results are needed without
+                      dictating approach. Used in performance-based acquisitions.
+                      Paired with QASP.
+                    references:
+                      - FAR 37.602
+                    related_documents:
+                      - QASP
+
+                  - label: Statement of Objectives
+                    abbreviation: SOO
+                    type: instance
+                    prescriptiveness: low
+                    description: >
+                      Describes broad goals and desired outcomes, allowing the
+                      contractor to propose their own approach. Often used to
+                      generate a PWS through the proposal process.
+                    references:
+                      - FAR 37.602
+                    generates: Contractor-Proposed PWS
+
+              - label: Evaluation Criteria
+                abbreviation: EVL
+                type: subclass
+                ucf_section: Section M
+                description: >
+                  Defines how proposals will be evaluated and scored. Drives
+                  the contractor's proposal volume structure.
+                references:
+                  - FAR 15.304
+
+              - label: Instructions to Offerors
+                abbreviation: ITO
+                type: subclass
+                ucf_section: Section L
+                description: >
+                  Tells the contractor exactly how to structure, format, and
+                  submit their proposal response.
+                references:
+                  - FAR 15.204
+
+          - label: Market Research Documents
+            abbreviation: MKT
+            type: class
+            description: >
+              The substantive content attached to Sources Sought and RFI
+              notices — questions, scope descriptions, and capability matrices.
+            references:
+              - FAR Part 10
+            delivery_mechanism: Pre-Solicitation Notices
+
+      # -----------------------------------------------------------------------
+      # AWARD DOCUMENTS
+      # -----------------------------------------------------------------------
+      - label: Award Documents
+        abbreviation: AWD
+        type: category
+        lifecycle_phase: award
+        description: >
+          Documents formalizing the agreement between government and contractor.
+        references:
+          - FAR Part 4
+
+        children:
+
+          - label: Contract
+            abbreviation: CTR
+            type: class
+            description: >
+              The formal contract document including base award, terms,
+              conditions, and incorporated solicitation documents.
+            references:
+              - FAR Part 16
+            standard_forms:
+              - SF 26
+              - SF 33
+
+          - label: CLINs / SLINs
+            abbreviation: CLN
+            type: class
+            description: >
+              Contract Line Item Numbers and Sub-Line Item Numbers defining
+              the pricing structure and deliverable breakdown.
+            references:
+              - FAR 4.10
+
+      # -----------------------------------------------------------------------
+      # POST-AWARD DOCUMENTS
+      # -----------------------------------------------------------------------
+      - label: Post-Award Documents
+        abbreviation: PST
+        type: category
+        lifecycle_phase: post_award
+        description: >
+          Documents used during contract performance, administration, and
+          closeout.
+        references:
+          - FAR Part 42
+
+        children:
+
+          - label: Quality Assurance Surveillance Plan
+            abbreviation: QASP
+            type: class
+            description: >
+              Defines how the government will monitor and assess contractor
+              performance against the PWS standards.
+            references:
+              - FAR 46.4
+            related_documents:
+              - PWS
+
+          - label: Contract Modifications
+            abbreviation: MOD
+            type: class
+            description: >
+              Formal changes to contract terms, scope, pricing, or period of
+              performance after award.
+            references:
+              - FAR Part 43
+            standard_forms:
+              - SF 30
+
+  # ===========================================================================
+  # CONTRACTOR RESPONSE DOCUMENTS
+  # ===========================================================================
+  contractor_documents:
+    label: Contractor Response Documents
+    abbreviation: CRD
+    type: domain_root
+    origin: contractor
+    description: >
+      Documents authored by a contractor across the full acquisition lifecycle —
+      from pre-award responses and teaming arrangements, through award-phase
+      agreements, to post-award deliverables and performance documentation.
+
+    children:
+
+      # -----------------------------------------------------------------------
+      # CONTRACTOR PRE-AWARD DOCUMENTS
+      # -----------------------------------------------------------------------
+      - label: Pre-Award Documents
+        abbreviation: CPRE
+        type: category
+        lifecycle_phase:
+          - planning
+          - pre_solicitation
+          - solicitation
+        description: >
+          All contractor-authored documents produced prior to contract award,
+          including market research responses, teaming arrangements, proposals,
+          and opportunity-shaping artifacts.
+
+        children:
+
+          # --- Teaming & Partner Agreements ---
+          - label: Teaming & Partner Agreements
+            abbreviation: TEAM
+            type: class
+            lifecycle_phase:
+              - planning
+              - pre_solicitation
+              - solicitation
+            description: >
+              Agreements negotiated between the prime contractor and partners
+              (subcontractors, joint venture members, or teammates) to define
+              roles, responsibilities, and terms for pursuing and performing
+              a contract opportunity. These may be initiated early in capture
+              and may or may not be required for submission with the proposal,
+              depending on solicitation instructions.
+            submission_requirement: Varies by solicitation (Section L)
+            binding: Depends on agreement type
+
+            children:
+
+              - label: Teaming Agreement
+                abbreviation: TA
+                type: instance
+                description: >
+                  A pre-proposal agreement between two or more companies to
+                  team on a specific opportunity. Defines the general
+                  relationship, work share, and intent to pursue. Typically
+                  non-binding regarding actual subcontract terms. May be
+                  executed early in capture planning and refreshed as the
+                  opportunity matures.
+                binding: Generally non-binding (letter of intent)
+                lifecycle_span:
+                  starts: Planning / Capture
+                  may_convert_to: Contract Teaming Agreement (CTA)
+                submission: Sometimes required with proposal per Section L
+
+              - label: Contract Teaming Agreement
+                abbreviation: CTA
+                type: instance
+                description: >
+                  A more formalized teaming arrangement that may be required
+                  for submission with the proposal. Defines specific work
+                  share percentages, labor categories, and terms that will
+                  govern the teaming relationship if the contract is awarded.
+                  Some solicitations explicitly require CTAs; others do not.
+                references:
+                  - FAR 9.6 (Contractor Team Arrangements)
+                binding: Conditionally binding (contingent on award)
+                submission: Required by some solicitations per Section L
+                evolves_from: Teaming Agreement
+
+              - label: Joint Venture Agreement
+                abbreviation: JVA
+                type: instance
+                description: >
+                  A formal agreement establishing a joint venture entity
+                  (often for small business set-aside purposes such as
+                  SBA mentor-protege JVs). Creates a distinct legal entity
+                  or arrangement that submits the proposal as the prime.
+                references:
+                  - 13 CFR 121.103
+                  - SBA Mentor-Protege Program
+                binding: Legally binding
+                submission: Required when JV is the offeror
+
+              - label: Non-Disclosure Agreement
+                abbreviation: NDA
+                type: instance
+                description: >
+                  Mutual or one-way NDA executed between teaming partners
+                  prior to sharing proprietary or competition-sensitive
+                  information during capture and proposal development.
+                binding: Legally binding
+                lifecycle_span:
+                  starts: Early capture / Pre-teaming
+                submission: Not submitted with proposal (internal)
+
+              - label: Subcontractor Commitment Letter
+                abbreviation: SCL
+                type: instance
+                description: >
+                  A letter from a proposed subcontractor confirming their
+                  commitment and availability to perform on the contract
+                  if awarded. Some solicitations require these as part of
+                  the proposal submission.
+                submission: Sometimes required per Section L
+                binding: Letter of commitment (not a subcontract)
+
+          # --- RFI Response ---
+          - label: RFI Response
+            abbreviation: RFIR
+            type: class
+            responds_to:
+              - Sources Sought Notice
+              - Request for Information (RFI)
+            binding: false
+            description: >
+              Response to a Request for Information or Sources Sought notice.
+              Non-binding, used to shape the acquisition and demonstrate
+              capability. May include Past Performance Narratives.
+
+            children:
+
+              - label: Capability Statement
+                abbreviation: CAP
+                type: instance
+                description: >
+                  Overview of the contractor's capabilities, relevant experience,
+                  certifications, and socioeconomic status. Often includes
+                  abbreviated Past Performance Narratives.
+
+              - label: Technical Questions Response
+                abbreviation: TQR
+                type: instance
+                description: >
+                  Direct answers to specific technical or capability questions
+                  posed in the RFI.
+
+              - label: Past Performance Narratives
+                abbreviation: PPN
+                type: instance
+                description: >
+                  Same Past Performance Narrative artifacts used in proposals,
+                  often in abbreviated form. Demonstrates relevant experience
+                  for the RFI scope.
+                reusable: true
+                shared_with: Past Performance Volume
+
+          # --- White Paper ---
+          - label: White Paper
+            abbreviation: WP
+            type: class
+            responds_to:
+              - Broad Agency Announcement (BAA)
+              - Special Notice
+            description: >
+              A thought-leadership or solution-oriented document, often submitted
+              in response to Broad Agency Announcements (BAAs) or used
+              proactively for opportunity shaping. Less formally structured
+              than a proposal.
+
+            children:
+
+              - label: Problem Framing
+                abbreviation: PF
+                type: instance
+                description: >
+                  Frames the problem space or mission challenge that the
+                  contractor's proposed solution addresses.
+
+              - label: Proposed Solution
+                abbreviation: PS
+                type: instance
+                description: >
+                  The contractor's proposed technical approach or innovative
+                  solution concept at a conceptual level.
+
+              - label: Qualifications Summary
+                abbreviation: QS
+                type: instance
+                description: >
+                  Brief summary of relevant qualifications and past performance,
+                  demonstrating the contractor's credibility to deliver.
+
+          # --- Proposal ---
+          - label: Proposal
+            abbreviation: PROP
+            type: class
+            responds_to:
+              - Solicitation Notice (RFP)
+            description: >
+              Formal proposal submitted in response to an RFP. Structured into
+              volumes as defined by Section L of the solicitation. Volume
+              order and naming varies by solicitation.
+            scored_by: Section M (Evaluation Criteria)
+
+            children:
+
+              - label: Technical Volume
+                abbreviation: TECH
+                type: instance
+                description: >
+                  Describes the contractor's technical approach, methodology,
+                  staffing, tools, and solution architecture. Directly addresses
+                  the SOW/PWS/SOO requirements. When responding to a SOO, may
+                  include a contractor-proposed PWS.
+                maps_to: Section C requirements
+
+                children:
+
+                  - label: Approach Narrative
+                    abbreviation: AN
+                    type: component
+                    description: >
+                      Narrative describing the contractor's technical methodology
+                      and approach to each requirement area.
+
+                  - label: Staffing Plan
+                    abbreviation: SP
+                    type: component
+                    description: >
+                      Proposed staffing, organizational structure, key personnel
+                      resumes, and labor categories.
+
+                  - label: Contractor-Proposed PWS
+                    abbreviation: CPWS
+                    type: component
+                    description: >
+                      When the solicitation uses a SOO, the contractor drafts
+                      their own PWS as part of the technical volume, defining
+                      measurable outcomes and how they'll achieve the stated
+                      objectives.
+                    triggered_by: SOO
+
+              - label: Management Volume
+                abbreviation: MGMT
+                type: instance
+                description: >
+                  Describes project management methodology, transition plans,
+                  risk mitigation, quality control, and organizational
+                  capabilities.
+
+                children:
+
+                  - label: Transition Plan
+                    abbreviation: TP
+                    type: component
+                    description: >
+                      Plan for transitioning from incumbent contractor, including
+                      knowledge transfer and ramp-up timeline.
+
+                  - label: Risk Management
+                    abbreviation: RM
+                    type: component
+                    description: >
+                      Identified risks to contract performance and the
+                      contractor's mitigation strategies.
+
+                  - label: Quality Control Plan
+                    abbreviation: QCP
+                    type: component
+                    description: >
+                      Contractor's internal quality control processes that
+                      complement the government's QASP.
+                    related_documents:
+                      - QASP
+
+              - label: Past Performance Volume
+                abbreviation: PP
+                type: instance
+                description: >
+                  Demonstrates the contractor's relevant past performance on
+                  similar contracts. Includes Past Performance Narratives and
+                  reference information.
+                references:
+                  - FAR 15.305(a)(2)
+
+                children:
+
+                  - label: Past Performance Narratives
+                    abbreviation: PPN
+                    type: component
+                    description: >
+                      Individual narratives for each relevant past/current
+                      contract, describing scope, outcomes, relevance, and
+                      lessons learned. Reusable across proposals and RFI
+                      responses.
+                    reusable: true
+                    also_appears_in:
+                      - RFI Response
+                      - Capability Statement
+
+                  - label: CPARS / References
+                    abbreviation: REF
+                    type: component
+                    description: >
+                      Contractor Performance Assessment Reporting System (CPARS)
+                      ratings and government reference points of contact.
+                    data_source: CPARS
+
+              - label: Price / Cost Volume
+                abbreviation: COST
+                type: instance
+                description: >
+                  The contractor's cost/price proposal including labor rates,
+                  ODCs, basis of estimate, and pricing methodology.
+                references:
+                  - FAR 15.4
+
+      # -----------------------------------------------------------------------
+      # CONTRACTOR AWARD DOCUMENTS
+      # -----------------------------------------------------------------------
+      - label: Award Documents
+        abbreviation: CAWD
+        type: category
+        lifecycle_phase: award
+        description: >
+          Contractor documents executed or finalized at the point of contract
+          award, including executed teaming arrangements and subcontracts
+          that formalize the relationships proposed during pre-award.
+
+        children:
+
+          - label: Executed Subcontract
+            abbreviation: SUB
+            type: class
+            description: >
+              Formal subcontract agreement between the prime contractor and
+              subcontractor(s), executed after contract award. Formalizes
+              the work share, terms, and flow-down clauses from the prime
+              contract.
+            references:
+              - FAR Part 44 (Subcontracting Policies)
+            evolves_from: Teaming Agreement / CTA
+
+          - label: Small Business Subcontracting Plan
+            abbreviation: SBSP
+            type: class
+            description: >
+              Required for contracts over $750K ($1.5M for construction).
+              Details the prime contractor's plan for subcontracting with
+              small business concerns across various socioeconomic categories.
+            references:
+              - FAR 19.702
+              - FAR 52.219-9
+            threshold: "> $750K (> $1.5M construction)"
+
+          - label: Organizational Conflict of Interest Mitigation Plan
+            abbreviation: OCI
+            type: class
+            description: >
+              Plan documenting how the contractor will identify, avoid, or
+              mitigate organizational conflicts of interest during contract
+              performance. May be required at proposal stage or at award.
+            references:
+              - FAR 9.5
+            submission: May be required pre-award or at award
+
+      # -----------------------------------------------------------------------
+      # CONTRACTOR POST-AWARD DOCUMENTS
+      # -----------------------------------------------------------------------
+      - label: Post-Award Documents
+        abbreviation: CPST
+        type: category
+        lifecycle_phase: post_award
+        description: >
+          All contractor-authored documents produced during contract
+          performance, including deliverables defined in the contract,
+          status reporting, and compliance documentation.
+
+        children:
+
+          # --- Deliverables ---
+          - label: Deliverables
+            abbreviation: DLVR
+            type: class
+            description: >
+              Work products and documentation the contractor is required to
+              produce and submit during contract performance, as defined by
+              the contract's CDRL, SOW/PWS, or deliverables schedule.
+              Deliverable types vary widely by contract.
+            defined_by:
+              - Contract Data Requirements List (CDRL)
+              - SOW / PWS deliverable tables
+              - Task order requirements
+
+            children:
+
+              - label: Technical Deliverables
+                abbreviation: TDLV
+                type: subclass
+                description: >
+                  Work products that constitute the primary technical output
+                  of the contract — software releases, engineering artifacts,
+                  system documentation, data migrations, test results,
+                  analyses, and other mission-specific outputs.
+                examples:
+                  - Software releases / code
+                  - System design documents
+                  - Architecture diagrams
+                  - Test plans and results
+                  - Data migration outputs
+                  - Security documentation (SSP, ATO packages)
+
+              - label: Management Deliverables
+                abbreviation: MDLV
+                type: subclass
+                description: >
+                  Project management and administrative documents required
+                  during performance — status reports, meeting minutes,
+                  schedule updates, and program management artifacts.
+                examples:
+                  - Monthly Status Reports (MSR)
+                  - Weekly Activity Reports (WAR)
+                  - Program Management Plan
+                  - Integrated Master Schedule (IMS)
+                  - Meeting minutes / agendas
+                  - Risk registers
+
+              - label: Financial Deliverables
+                abbreviation: FDLV
+                type: subclass
+                description: >
+                  Financial reporting and invoicing documentation submitted
+                  during contract performance.
+                examples:
+                  - Invoices
+                  - Incurred cost reports
+                  - Earned Value Management (EVM) reports
+                  - Travel and ODC reporting
+
+          # --- Compliance & Reporting ---
+          - label: Compliance Documentation
+            abbreviation: COMP
+            type: class
+            description: >
+              Documentation the contractor maintains or submits to demonstrate
+              compliance with contract terms, regulations, and government
+              oversight requirements.
+
+            children:
+
+              - label: Contractor Performance Report
+                abbreviation: CPR
+                type: instance
+                description: >
+                  Self-assessment or government-directed performance reports
+                  that feed into CPARS evaluations. Demonstrates how the
+                  contractor is meeting contract requirements.
+                related_documents:
+                  - QASP
+                  - CPARS
+
+              - label: Section 508 Compliance Documentation
+                abbreviation: 508
+                type: instance
+                description: >
+                  Accessibility conformance reports (ACRs / VPATs) and
+                  related documentation demonstrating ICT accessibility
+                  compliance.
+                references:
+                  - FAR 39.2
+                  - 36 CFR 1194
+
+              - label: Security Documentation
+                abbreviation: SEC
+                type: instance
+                description: >
+                  Security plans, incident reports, and compliance
+                  documentation required under FISMA, FedRAMP, or
+                  contract-specific security requirements.
+                examples:
+                  - System Security Plan (SSP)
+                  - ATO package
+                  - POA&M
+                  - Incident response reports
+
+          # --- Contract Change Responses ---
+          - label: Contract Change Responses
+            abbreviation: CCR
+            type: class
+            description: >
+              Contractor-initiated or contractor-response documents related
+              to changes in contract scope, terms, or performance during
+              the post-award period.
+
+            children:
+
+              - label: Engineering Change Proposal
+                abbreviation: ECP
+                type: instance
+                description: >
+                  Contractor-submitted proposal to change technical
+                  requirements, design, or approach during performance.
+
+              - label: Request for Equitable Adjustment
+                abbreviation: REA
+                type: instance
+                description: >
+                  Formal request for cost or schedule adjustment due to
+                  government-directed changes or unforeseen conditions.
+                references:
+                  - FAR Part 43
+                  - Changes clause (FAR 52.243)
+
+              - label: Task Order Response
+                abbreviation: TOR
+                type: instance
+                description: >
+                  Contractor's response to a task order request under an
+                  IDIQ or similar indefinite-delivery vehicle. Functions
+                  as a mini-proposal for individual task orders.
+                responds_to: Task Order Request / Fair Opportunity
+
+  # ===========================================================================
+  # CROSS-CUTTING RELATIONSHIPS
+  # ===========================================================================
+  relationships:
+
+    solicitation_response_mappings:
+      - government_document: Annual Procurement Forecast
+        contractor_action: Pipeline / Capture Planning
+        relationship: informs
+
+      - government_document: Sources Sought Notice / RFI
+        contractor_document: RFI Response / Capability Statement
+        relationship: responds_to
+
+      - government_document: RFP (with SOW/PWS/SOO)
+        contractor_document: Proposal
+        relationship: responds_to
+
+      - government_document: Broad Agency Announcement
+        contractor_document: White Paper
+        relationship: responds_to
+
+      - government_document: Amendment / Modification Notice
+        contractor_document: Proposal Revision
+        relationship: triggers
+
+      - government_document: Award Notice
+        contractor_action: Win/Loss Analysis + Debrief Request
+        relationship: confirms
+
+      - government_document: Task Order Request (Fair Opportunity)
+        contractor_document: Task Order Response
+        relationship: responds_to
+
+    generative_relationships:
+      - source: Statement of Objectives (SOO)
+        generates: Contractor-Proposed PWS
+        context: >
+          When the government issues a SOO, the contractor drafts their own
+          PWS as part of the Technical Volume.
+
+      - source: Acquisition Plan
+        generates:
+          - SOW
+          - PWS
+          - SOO
+        context: >
+          Internal acquisition plans drive the development of all requirement
+          description documents.
+
+    evolution_chains:
+      - description: >
+          Teaming documents evolve through the lifecycle from informal to
+          formal as the opportunity matures and award is made.
+        chain:
+          - NDA (Early capture)
+          - Teaming Agreement (Capture / Pre-solicitation)
+          - Contract Teaming Agreement (Solicitation / Proposal)
+          - Executed Subcontract (Post-award)
+
+      - description: >
+          The contractor's quality approach evolves from proposal artifact
+          to active performance document.
+        chain:
+          - Quality Control Plan (Proposal - Management Volume)
+          - Contractor Performance Report (Post-award)
+          - CPARS Rating (Post-award - Government assessment)
+
+    companion_documents:
+      - primary: Performance Work Statement (PWS)
+        companion: Quality Assurance Surveillance Plan (QASP)
+        relationship: monitored_by
+
+      - primary: Evaluation Criteria (Section M)
+        companion: Instructions to Offerors (Section L)
+        relationship: structured_by
+
+      - primary: QASP
+        companion: Contractor Performance Report
+        relationship: assessed_against
+
+      - primary: Contract (Government)
+        companion: Executed Subcontract (Contractor)
+        relationship: flows_down_to
+
+    reusable_components:
+      - component: Past Performance Narratives
+        appears_in:
+          - Past Performance Volume
+          - RFI Response
+          - Capability Statement
+
+      - component: Teaming Agreement
+        appears_in:
+          - Capture planning (internal)
+          - Proposal submission (if required by Section L)
+        evolves_to: Contract Teaming Agreement / Executed Subcontract
+
+  # ===========================================================================
+  # ACQUISITION LIFECYCLE MAPPING
+  # ===========================================================================
+  lifecycle:
+    phases:
+
+      - phase: planning
+        label: Planning
+        government_documents:
+          - Annual Procurement Forecast
+          - Acquisition Plan
+        contractor_documents:
+          - Non-Disclosure Agreement
+          - Teaming Agreement (early)
+        contractor_actions:
+          - Pipeline Tracking
+          - Capture Planning
+
+      - phase: pre_solicitation
+        label: Pre-Solicitation
+        government_documents:
+          - Sources Sought Notice
+          - RFI Notice
+          - Presolicitation Notice
+          - Special Notice
+        contractor_documents:
+          - RFI Response
+          - Capability Statement
+          - White Paper
+          - Teaming Agreement
+
+      - phase: solicitation
+        label: Solicitation
+        government_documents:
+          - Synopsis / Solicitation
+          - Combined Synopsis/Solicitation
+          - Amendment Notices
+        contractor_documents:
+          - Proposal
+          - Contract Teaming Agreement
+          - Subcontractor Commitment Letter
+
+      - phase: evaluation
+        label: Evaluation
+        government_documents:
+          - Q&A / Amendment
+          - Cancellation Notice
+
+      - phase: award
+        label: Award
+        government_documents:
+          - Award Notice
+          - J&A Notice
+          - Contract
+        contractor_documents:
+          - Executed Subcontract
+          - Small Business Subcontracting Plan
+          - OCI Mitigation Plan
+
+      - phase: post_award
+        label: Post-Award
+        government_documents:
+          - QASP
+          - Contract Modifications
+          - IDV / Order Notices
+        contractor_documents:
+          - Technical Deliverables
+          - Management Deliverables
+          - Financial Deliverables
+          - Compliance Documentation
+          - Contractor Performance Report
+          - Task Order Response
+          - Engineering Change Proposal
+          - Request for Equitable Adjustment
