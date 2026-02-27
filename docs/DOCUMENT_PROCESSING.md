@@ -87,7 +87,7 @@ The `classify_document` compound function assigns an ontology classification:
 
 1. Reads extracted Markdown from MinIO
 2. Sends text to LLM with the document taxonomy (46 classes across 3 domains)
-3. LLM returns: `class` (e.g., "Contract", "Solicitation", "Proposal Response"), `domain` (federal_acquisition, contractor_response, other), `subclass`, `category`, `lifecycle_phase`, `classification_path`
+3. LLM returns: `class` (e.g., "Contract", "Solicitation", "Proposal Response"), `domain` (federal_acquisition, contractor_response, other), `subclass`, `category`, `classification_path`
 4. Classification fields stored in `asset.source_metadata.ontology`
 
 **Domains:**
