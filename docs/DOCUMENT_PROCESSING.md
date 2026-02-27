@@ -9,11 +9,13 @@ Curatore delegates all document extraction to an external **Document Service** (
 ```mermaid
 flowchart LR
     Upload["Upload"] --> DocService["Document Service\n(triage + extraction)"]
-    DocService --> Indexing["Indexing\n(pgvector)"]
+    DocService --> Classification["Classification\n+ Entity Extraction"]
+    Classification --> Indexing["Indexing\n(pgvector)"]
 
     Upload -.- A1["Asset created\nstatus=pending"]
     DocService -.- A2["Markdown in\nMinIO bucket\ntriage_engine set"]
-    Indexing -.- A3["Searchable\nin pgvector\nindexed_at set"]
+    Classification -.- A3["Ontology class, domain,\nentity fields set\nin source_metadata"]
+    Indexing -.- A4["Searchable\nin pgvector\nindexed_at set"]
 ```
 
 ## Architecture
@@ -75,7 +77,47 @@ The `ExtractionOrchestrator` sends the file to the Document Service:
 5. Backend uploads Markdown to `curatore-processed` bucket
 6. Backend updates `ExtractionResult` with triage fields
 
-### 3. Search Indexing
+### 3. Classification & Entity Extraction
+
+After text extraction, the backend classifies each document and extracts structured entity fields using the LLM:
+
+#### 3a. Document Classification (`classify_document`)
+
+The `classify_document` compound function assigns an ontology classification:
+
+1. Reads extracted Markdown from MinIO
+2. Sends text to LLM with the document taxonomy (46 classes across 3 domains)
+3. LLM returns: `class` (e.g., "Contract", "Solicitation", "Proposal Response"), `domain` (federal_acquisition, contractor_response, other), `subclass`, `category`, `lifecycle_phase`, `classification_path`
+4. Classification fields stored in `asset.source_metadata.ontology`
+
+**Domains:**
+- **federal_acquisition** — Government-side documents (solicitations, contracts, modifications, forecasts, notices)
+- **contractor_response** — Contractor-side documents (proposals, capability statements, past performance, teaming agreements)
+- **other** — Documents that don't match the gov-contracting taxonomy
+
+#### 3b. Entity Field Extraction (`extract_document_fields`)
+
+The `extract_document_fields` compound function extracts structured fields based on the document's class:
+
+1. Fetches the extraction spec from the metadata registry (`get_extraction_spec(document_type)`)
+2. The spec includes **common fields** (agency, topics, capabilities, mentioned_agencies, mentioned_companies) for all types, plus **per-type fields** specific to the document class:
+   - **Contract**: contract_number, contracting_agency, contract_type, vehicle, naics_codes, contract_value, period_of_performance, set_aside_type, place_of_performance
+   - **Solicitation**: solicitation_number, response_deadline, contract_type, vehicle, naics_codes, set_aside_type, place_of_performance
+   - **Proposal Response**: solicitation_number, vehicle, naics_codes, team_members, key_personnel
+   - **Modification**: contract_number, modification_number, modification_type, contracting_agency, contract_value
+   - **Capability Statement**: company_name, certifications, core_competencies, key_personnel
+   - *(40+ classes have per-type fields defined)*
+3. LLM extracts values for each field
+4. Entity fields stored in `asset.source_metadata.ontology` alongside classification
+
+#### 3c. Search Chunk Propagation
+
+Entity fields from `source_metadata.ontology` are propagated to `search_chunks.metadata.ontology` via `propagate_source_metadata()`. This means ontology fields are available as:
+- **Facet filters** in search (e.g., `classification`, `solicitation_number`, `contract_number`, `agency`)
+- **Top-level properties** in search results (via `build_catalog_output_properties`)
+- **Filterable** via the `where` clause in structured queries
+
+### 4. Search Indexing
 
 After extraction completes:
 

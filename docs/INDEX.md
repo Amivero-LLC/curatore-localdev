@@ -21,7 +21,7 @@ Master map of all documentation across Curatore repositories.
 | [Auth & Access Model](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/AUTH_ACCESS_MODEL.md) | Roles, org context, RBAC, dependency functions |
 | [Search & Indexing](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SEARCH_INDEXING.md) | pgvector, hybrid search, chunking, embeddings, reindexing |
 | [Search Reranking](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SEARCH_RERANKING.md) | Cross-encoder reranking, provider config, relevance thresholds |
-| [Metadata Catalog](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/METADATA_CATALOG.md) | Namespaces, fields, facets, reference data, document type profiles, registry service |
+| [Metadata Catalog](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/METADATA_CATALOG.md) | Namespaces, fields, facets, reference data, ontology taxonomy, entity extraction, registry service |
 | [Queue System](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/QUEUE_SYSTEM.md) | Celery queues, job groups, cancellation |
 | [Functions & Procedures](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/FUNCTIONS_PROCEDURES.md) | CWR workflow automation, function reference |
 | [API Documentation](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/API_DOCUMENTATION.md) | REST API reference (also at `/docs`) |
