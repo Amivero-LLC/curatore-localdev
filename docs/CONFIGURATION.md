@@ -199,6 +199,20 @@ Configure hybrid full-text + semantic search. By default search shares the prima
 - `search.timeout`: Query timeout in seconds (default: 30)
 - `search.max_content_length`: Max indexable content length (default: 100000)
 
+**Chunking Strategy (optional):**
+
+Controls how documents are split into searchable chunks. Uses the [Chonkie](https://github.com/chonkie-inc/chonkie) library.
+
+- `search.chunking.strategy`: Chunking strategy (default: `semantic`)
+  - `semantic` — Groups sentences by embedding similarity (best quality, requires embedding API)
+  - `recursive` — Hierarchical paragraph/sentence/word splitting (fast, no API calls)
+  - `token` — Fixed-size token-based splitting with overlap
+  - `sentence` — Sentence-level segmentation with token limits
+- `search.chunking.similarity_threshold`: Similarity threshold for semantic strategy, 0.0–1.0 (default: 0.5)
+- `search.chunking.similarity_window`: Sentence window for semantic similarity comparison, 1–10 (default: 3)
+
+If the `chunking` section is omitted, the default `semantic` strategy is used. If the semantic strategy fails (e.g., embedding API unreachable), it automatically falls back to `recursive`.
+
 **Example — shared database (default):**
 ```yaml
 search:
@@ -207,6 +221,20 @@ search:
   semantic_weight: 0.5
   chunk_size: 1500
   chunk_overlap: 200
+  chunking:
+    strategy: semantic
+    similarity_threshold: 0.5
+    similarity_window: 3
+```
+
+**Example — fast chunking without API calls:**
+```yaml
+search:
+  enabled: true
+  chunk_size: 1500
+  chunk_overlap: 200
+  chunking:
+    strategy: recursive
 ```
 
 **Example — dedicated pgvector instance:**
@@ -216,6 +244,8 @@ search:
   enabled: true
   default_mode: hybrid
 ```
+
+> **Note:** Changing the chunking strategy only affects newly indexed documents. To re-chunk existing documents, trigger a full reindex via `POST /api/v1/search/reindex`.
 
 > **Note:** When using a dedicated search database, the `search_chunks` table and pgvector extension must exist in that database. Run the search-specific Alembic migrations against it before starting. The primary database still stores all application tables (assets, runs, etc.).
 

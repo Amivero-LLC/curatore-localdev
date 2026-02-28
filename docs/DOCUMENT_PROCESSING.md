@@ -122,7 +122,7 @@ Entity fields from `source_metadata.ontology` are propagated to `search_chunks.m
 After extraction completes:
 
 1. Download extracted Markdown
-2. Split into chunks (~1500 chars with 200 char overlap)
+2. Split into chunks using [Chonkie](https://github.com/chonkie-inc/chonkie) library (default: `semantic` strategy — groups sentences by embedding similarity; fallback: `recursive` — paragraph/sentence/word boundaries). Target ~1500 chars per chunk. Strategy configurable via `config.yml` `search.chunking.strategy`.
 3. Generate embeddings via OpenAI API (text-embedding-3-small)
 4. Insert into `search_chunks` table (PostgreSQL + pgvector)
 5. Set `indexed_at` timestamp on Asset
