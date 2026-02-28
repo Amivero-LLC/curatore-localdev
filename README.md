@@ -65,7 +65,7 @@ cp .env.example .env
 
 ```
 curatore-localdev/
-├── curatore-backend/           # FastAPI + Celery + Redis + PostgreSQL + MinIO
+├── curatore-backend/           # FastAPI + Celery + Redis + PostgreSQL + MinIO + Chonkie
 ├── curatore-frontend/          # Next.js 15 + React 19 + Tailwind
 ├── curatore-document-service/  # Document extraction (PDF, DOCX, etc.)
 ├── curatore-playwright-service/# Browser rendering for web scraping
@@ -327,6 +327,7 @@ docker network rm curatore-network
 | [Configuration](docs/CONFIGURATION.md) | `.env` vs `config.yml` philosophy and full reference |
 | [Document Processing](docs/DOCUMENT_PROCESSING.md) | Upload to extraction to indexing pipeline |
 | [Extraction Engines](docs/EXTRACTION_SERVICES.md) | Triage and engine comparison |
+| [Embedding Models & pgvector](docs/EMBEDDING_MODELS.md) | Supported models, dimension auto-resolution, switching models |
 | [Data Connections](docs/DATA_CONNECTIONS.md) | Adding new integrations |
 
 Each service also has its own `CLAUDE.md` with service-specific development guidance.
