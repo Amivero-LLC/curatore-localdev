@@ -165,3 +165,7 @@ search:
   max_content_length: 100000
   chunk_size: 1500
   chunk_overlap: 200
+  chunking:
+    strategy: semantic           # recursive | semantic | token | sentence
+    similarity_threshold: 0.5    # For semantic strategy (0=merge aggressively, 1=no merging)
+    similarity_window: 3         # Sentence window for semantic similarity
