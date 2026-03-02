@@ -35,7 +35,7 @@ The backend is a thin orchestrator:
 The Document Service (`curatore-document-service` repo, port 8010) handles all extraction internally:
 
 - **Triage**: Analyzes documents to select the optimal engine
-- **Engines**: `fast_pdf` (PyMuPDF), `markitdown` (MarkItDown + LibreOffice), `pymupdf4llm` (PyMuPDF4LLM + Tesseract OCR)
+- **Engines**: `fast_pdf` (PyMuPDF), `markitdown` (MarkItDown + LibreOffice), `pymupdf4llm` (PyMuPDF4LLM + Tesseract OCR), `ocr_only` (Poppler + Tesseract, crashproof fallback)
 - **API**: `POST /api/v1/extract`, `GET /api/v1/system/health`, `GET /api/v1/system/capabilities`, `GET /api/v1/system/supported-formats`
 
 The Document Service uses pymupdf4llm (a local Python library with Tesseract OCR) for complex extraction. No external HTTP service is required. The backend never communicates with extraction engines directly.
@@ -72,7 +72,7 @@ The `ExtractionOrchestrator` sends the file to the Document Service:
 3. Document Service performs triage internally (engine selection)
 4. Document Service extracts content and returns JSON with:
    - `content_markdown` — extracted text in Markdown
-   - `method` — engine used (`fast_pdf`, `markitdown`, `pymupdf4llm`)
+   - `method` — engine used (`fast_pdf`, `markitdown`, `pymupdf4llm`, `ocr_only`)
    - `triage` block — triage metadata (engine, needs_ocr, complexity, duration_ms)
 5. Backend uploads Markdown to `curatore-processed` bucket
 6. Backend updates `ExtractionResult` with triage fields
@@ -129,7 +129,7 @@ After extraction completes:
 
 ## Extraction Engines (inside Document Service)
 
-The Document Service uses three extraction engines internally:
+The Document Service uses four extraction engines internally:
 
 ### 1. fast_pdf (PyMuPDF)
 - Fast local extraction for simple, text-based PDFs
@@ -144,6 +144,12 @@ The Document Service uses three extraction engines internally:
 - Used for scanned PDFs, complex layouts, large Office files
 - Local Python library with Tesseract OCR support; ARM-native, no external HTTP service required
 
+### 4. ocr_only (Poppler + Tesseract)
+- Crashproof last-resort fallback for malformed PDFs that crash MuPDF's C library
+- Uses Poppler (`pdftoppm`) for rasterization + Tesseract for OCR — completely avoids MuPDF
+- **Not selected by triage** — reached via the backend's crash escalation chain after both MuPDF engines fail
+- Lower quality than pymupdf4llm (no table detection, no layout analysis) but immune to MuPDF crashes
+
 ## Extraction Result Fields
 
 After extraction, the `ExtractionResult` record stores triage decisions:
@@ -154,7 +160,7 @@ ExtractionResult {
     status: "completed"
 
     # Triage fields (from Document Service response)
-    triage_engine: "fast_pdf" | "markitdown" | "pymupdf4llm"
+    triage_engine: "fast_pdf" | "markitdown" | "pymupdf4llm" | "ocr_only"
     triage_needs_ocr: bool
     triage_needs_layout: bool
     triage_complexity: "low" | "medium" | "high"

@@ -16,21 +16,27 @@ flowchart TD
     FastPDF --> Output["Markdown Output"]
     DocSvc --> Output
     PyMuPDF4LLM --> Output
+    FastPDF -- "crash" --> Escalation["Backend Crash\nEscalation"]
+    PyMuPDF4LLM -- "crash" --> Escalation
+    Escalation --> OcrOnly["ocr_only\n(Poppler + Tesseract)"]
+    OcrOnly --> Output
 ```
 
 ## Quick Comparison
 
-| Feature | fast_pdf | document-service | pymupdf4llm |
-|---------|----------|-----------------|-------------|
-| **Location** | Local (worker) | Container (8010) | Local (worker) |
-| **Technology** | PyMuPDF | MarkItDown + LibreOffice | pymupdf4llm + Tesseract OCR |
-| **PDF (simple)** | Yes (fast) | No | Yes |
-| **PDF (scanned)** | No | No | Yes (OCR via Tesseract) |
-| **Office files** | No | Yes | No |
-| **Text/HTML/Email** | No | Yes | No |
-| **Table Extraction** | Basic | Basic | Advanced |
-| **Speed** | Very Fast | Fast | Moderate |
-| **Resource Usage** | Low | Low | Low-Moderate |
+| Feature | fast_pdf | document-service | pymupdf4llm | ocr_only |
+|---------|----------|-----------------|-------------|----------|
+| **Location** | Local (worker) | Container (8010) | Local (worker) | Container (8010) |
+| **Technology** | PyMuPDF | MarkItDown + LibreOffice | pymupdf4llm + Tesseract OCR | Poppler (pdftoppm) + Tesseract |
+| **PDF (simple)** | Yes (fast) | No | Yes | Yes (OCR quality) |
+| **PDF (scanned)** | No | No | Yes (OCR via Tesseract) | Yes |
+| **PDF (malformed)** | Crashes | N/A | Crashes | Yes (crashproof) |
+| **Office files** | No | Yes | No | No |
+| **Text/HTML/Email** | No | Yes | No | No |
+| **Table Extraction** | Basic | Basic | Advanced | None (plain text OCR) |
+| **Speed** | Very Fast | Fast | Moderate | Slow |
+| **Resource Usage** | Low | Low | Low-Moderate | Moderate (rasterization) |
+| **Triage-selectable** | Yes | Yes | Yes | No (crash escalation only) |
 
 ## Extraction Engines
 
@@ -128,6 +134,34 @@ curl -X POST "http://localhost:8010/api/v1/extract" \
 - OCR for scanned content via Tesseract
 - ARM-native, no external service dependency
 - Runs locally in the worker process (no network latency)
+
+### 4. ocr_only (Poppler + Tesseract)
+
+**Purpose:** Crashproof last-resort fallback for PDFs that crash MuPDF's C library.
+
+**Technology:** Poppler (`pdftoppm`) for PDF-to-image rasterization + Tesseract OCR for text recognition. Completely avoids MuPDF.
+
+**Supported Extensions:** `.pdf`
+
+**When Used:**
+- **Never selected by triage** — reached only via the backend's crash escalation chain
+- After both `fast_pdf` and `pymupdf4llm` crash on the same document (malformed structure trees, broken xref tables, etc.)
+- Can also be explicitly requested via `?engine=ocr_only` query parameter
+
+**Escalation Chain:**
+
+| Attempt | Engine | On crash... |
+|---------|--------|-------------|
+| 1 | Triage-selected (auto) | Escalate to alternate MuPDF engine |
+| 2 | fast_pdf or pymupdf4llm | Escalate to `ocr_only` |
+| 3 | `ocr_only` | Success or final failure |
+
+**Characteristics:**
+- Immune to MuPDF C-library crashes (uses Poppler subprocess instead)
+- Lower quality than pymupdf4llm (no table detection, no layout analysis)
+- Slower (rasterizes every page to PNG, then OCR each)
+- All pages are OCR'd — `content_type` is always `scanned` in structure metadata
+- Configurable via `OCR_ONLY_DPI` (default 300) and `OCR_ONLY_LANGUAGE` (default `eng`)
 
 ## Pre-Flight Validation
 
@@ -264,6 +298,14 @@ docker-compose up -d worker
 
 **Solution:** Ensure the worker Dockerfile includes `apt-get install -y tesseract-ocr`
 
+### Poppler (pdftoppm) Not Found
+
+**Error:** `pdftoppm (Poppler) is not installed — ocr_only engine unavailable`
+
+**Cause:** poppler-utils not installed in the document-service container image
+
+**Solution:** Ensure the Dockerfile includes `apt-get install -y poppler-utils`. Rebuild with `docker compose build document-service`.
+
 ### Images Not Processing
 
 **Error:** `Unsupported file type`
@@ -278,7 +320,8 @@ docker-compose up -d worker
 - [MarkItDown](https://github.com/microsoft/markitdown)
 - [PyMuPDF](https://pymupdf.readthedocs.io/)
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+- [Poppler](https://poppler.freedesktop.org/) (pdftoppm for crashproof PDF rasterization)
 
-## Updated: 2026-02-17
+## Updated: 2026-03-02
 
-Triage-based architecture with fast_pdf, document-service, and pymupdf4llm engines.
+Added ocr_only engine (Poppler + Tesseract) as crashproof fallback with backend escalation chain.
