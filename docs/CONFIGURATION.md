@@ -392,12 +392,14 @@ sam:
 
 ### Email Service
 
-Configure email delivery for user notifications.
+Configure email delivery for invitations, password resets, and notifications. This is the single source of truth for email configuration — the backend reads only from `config.yml`.
+
+If this section is absent, the backend falls back to legacy `.env` settings (`EMAIL_BACKEND`, `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`). For new deployments, always configure email here.
 
 **Required:**
-- `email.backend`: Email backend (console, smtp, sendgrid, ses)
-- `email.from_address`: From email address
-- `email.from_name`: From display name
+- `email.backend`: Email backend — one of: `console`, `smtp`, `sendgrid`, `ses`, `microsoft_graph`
+- `email.from_address`: Sender email address
+- `email.from_name`: Sender display name
 
 **SMTP Configuration (if backend=smtp):**
 - `email.smtp.host`: SMTP server hostname
@@ -407,8 +409,32 @@ Configure email delivery for user notifications.
 - `email.smtp.use_tls`: Use TLS encryption (default: true)
 - `email.smtp.timeout`: Connection timeout in seconds (default: 30)
 
-**Example:**
+**SendGrid Configuration (if backend=sendgrid):**
+- `email.sendgrid.api_key`: SendGrid API key
+
+**AWS SES Configuration (if backend=ses):**
+- `email.aws_ses.region`: AWS region (default: us-east-1)
+- `email.aws_ses.access_key_id`: AWS access key (optional — omit for IRSA in EKS)
+- `email.aws_ses.secret_access_key`: AWS secret key (optional — omit for IRSA in EKS)
+
+**Microsoft Graph Configuration (if backend=microsoft_graph):**
+- `email.microsoft_graph.tenant_id`: Azure AD tenant ID
+- `email.microsoft_graph.client_id`: App registration client ID
+- `email.microsoft_graph.client_secret`: App registration client secret
+- `email.microsoft_graph.sender_user_id`: Sender user ID/UPN for Graph sendMail
+
+> **Note:** Microsoft Graph email credentials are separate from SharePoint Graph credentials (`microsoft_graph:` section). You can use different app registrations for SharePoint sync vs. email sending. In localdev, `generate-env.sh` falls back to SharePoint creds if email-specific creds are not set.
+
+**Examples:**
+
 ```yaml
+# Console (development — logs to stdout, no emails sent)
+email:
+  backend: console
+  from_address: noreply@curatore.app
+  from_name: Curatore
+
+# SMTP
 email:
   backend: smtp
   from_address: noreply@curatore.app
@@ -419,6 +445,25 @@ email:
     username: ${SMTP_USERNAME}
     password: ${SMTP_PASSWORD}
     use_tls: true
+
+# Microsoft Graph
+email:
+  backend: microsoft_graph
+  from_address: noreply@yourcompany.com
+  from_name: Curatore
+  microsoft_graph:
+    tenant_id: ${MS_EMAIL_TENANT_ID}
+    client_id: ${MS_EMAIL_CLIENT_ID}
+    client_secret: ${MS_EMAIL_CLIENT_SECRET}
+    sender_user_id: noreply@yourcompany.com
+
+# AWS SES (production with IRSA — no access keys needed)
+email:
+  backend: ses
+  from_address: noreply@curatore.app
+  from_name: Curatore
+  aws_ses:
+    region: us-east-1
 ```
 
 ---
