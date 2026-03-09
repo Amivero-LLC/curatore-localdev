@@ -307,18 +307,313 @@ Each submodule has a `.github/workflows/ci.yml` that runs on push to `main` and 
 10. **NEVER** push code that only passes `dev-check.sh` locally without also verifying the submodule's GitHub Actions CI.
 11. **NEVER** merge a PR with failing CI checks — fix the failures first.
 
+## Branching Strategy
+
+All repositories follow the same branching model. `main` is the protected integration branch — all changes arrive via pull requests.
+
+### Branch Types
+
+| Branch Pattern | Purpose | Base | Merges Into | Example |
+|---------------|---------|------|-------------|---------|
+| `main` | Integration branch, always deployable | — | — | `main` |
+| `feature/<slug>` | New features or enhancements | `main` | `main` via PR | `feature/sharepoint-sync` |
+| `fix/<slug>` | Bug fixes | `main` | `main` via PR | `fix/jwt-refresh-race` |
+| `chore/<slug>` | Maintenance, deps, config, CI | `main` | `main` via PR | `chore/upgrade-ruff` |
+| `docs/<slug>` | Documentation-only changes | `main` | `main` via PR | `docs/api-auth-guide` |
+| `release/<version>` | Release stabilization (when needed) | `main` | `main` via PR + tag | `release/1.0.0` |
+| `hotfix/<slug>` | Urgent production fixes | `main` or `release/*` | `main` via PR | `hotfix/critical-auth-bypass` |
+
+### Branch Naming Rules
+
+- Use lowercase with hyphens: `feature/add-document-search` (not `feature/AddDocumentSearch`)
+- Keep slugs short but descriptive (2-5 words)
+- Include a ticket/issue number when one exists: `feature/42-sharepoint-sync`
+- Never commit directly to `main` — always use a feature branch + PR
+
+### Branch Lifecycle
+
+```bash
+# 1. Create feature branch from latest main
+git checkout main && git pull
+git checkout -b feature/my-change
+
+# 2. Work, commit (see Commit Message Convention below)
+git add <files> && git commit
+
+# 3. Push and create PR
+git push -u origin feature/my-change
+gh pr create --base main
+
+# 4. After PR merge, clean up
+git checkout main && git pull
+git branch -d feature/my-change
+```
+
+## Commit Message Convention
+
+All repositories use **Conventional Commits** format for traceability and changelog generation.
+
+### Format
+
+```
+<type>(<scope>): <short description>
+
+[optional body — what and why, not how]
+
+[optional footer(s)]
+```
+
+### Types
+
+| Type | When to Use |
+|------|------------|
+| `feat` | New feature or capability |
+| `fix` | Bug fix |
+| `refactor` | Code restructuring (no behavior change) |
+| `docs` | Documentation only |
+| `test` | Adding or updating tests |
+| `chore` | Maintenance, deps, config, CI |
+| `perf` | Performance improvement |
+| `style` | Formatting, linting (no logic change) |
+
+### Scopes (optional, per service)
+
+Use a short scope to indicate the area of change:
+
+| Service | Common Scopes |
+|---------|--------------|
+| backend | `api`, `auth`, `workers`, `models`, `search`, `migrations`, `config`, `cwr` |
+| frontend | `ui`, `api-client`, `auth`, `pages`, `components` |
+| document-service | `extraction`, `generation`, `engines` |
+| playwright-service | `rendering`, `config` |
+| mcp-service | `tools`, `auth`, `middleware` |
+
+### Examples
+
+```
+feat(api): add bulk document upload endpoint
+
+Accepts multipart uploads of up to 50 files per request.
+Validates file types against allowed_extensions config.
+
+Closes #123
+```
+
+```
+fix(auth): prevent JWT refresh race condition
+
+Two concurrent 401s could trigger duplicate refresh requests.
+Added mutex around the refresh token exchange.
+```
+
+```
+chore(deps): upgrade FastAPI to 0.115.x
+```
+
+### Breaking Changes
+
+Append `!` after the type/scope and add a `BREAKING CHANGE:` footer:
+
+```
+feat(api)!: rename /documents endpoint to /assets
+
+BREAKING CHANGE: All clients must update from /api/v1/documents to /api/v1/assets.
+Frontend and MCP service updated in companion PRs.
+
+Cross-repo: frontend#87, mcp-service#34
+```
+
+### Localdev Submodule Reference Commits
+
+When updating submodule pointers in localdev, use this format:
+
+```
+chore(submodules): update backend, frontend refs
+
+backend: feat(api) - bulk document upload (#123)
+frontend: feat(ui) - upload page redesign (#87)
+```
+
+## Pull Request Workflow
+
+### PR Requirements (All Repos)
+
+Every PR must satisfy these gates before merge:
+
+1. **Branch is up to date with `main`** — rebase or merge main into your branch
+2. **CI passes** — all three phases (lint, security, tests)
+3. **PR description filled out** — use the template, link related issues/PRs
+4. **Cross-repo PRs linked** — if changes span services, link companion PRs in the description
+5. **No direct pushes to `main`** — all changes via PR
+
+### PR Title Convention
+
+PR titles should follow the same Conventional Commits format as commit messages:
+
+```
+feat(api): add bulk document upload endpoint
+fix(auth): prevent JWT refresh race condition
+chore(deps): upgrade FastAPI to 0.115.x
+```
+
+### Cross-Service PR Linking
+
+When a change spans multiple repositories, link all related PRs:
+
+```markdown
+## Cross-Service PRs
+- Backend: Amivero-LLC/curatore-backend#123
+- Frontend: Amivero-LLC/curatore-frontend#87
+- MCP: Amivero-LLC/curatore-mcp-service#34
+
+Merge order: backend → mcp → frontend
+```
+
+## Cross-Service Feature Workflow
+
+For changes that span multiple repositories (e.g., new API endpoint + frontend page + MCP tool):
+
+### Coordination Pattern
+
+1. **Plan the change** — identify which repos need changes and the merge order (usually: backend → extracted services → frontend)
+2. **Use matching branch names** — create `feature/<slug>` in each affected repo with the same slug
+3. **Backend first** — API contracts must be merged before consumers
+4. **Link companion PRs** — each PR references the others in its description
+5. **Update localdev last** — after all submodule PRs merge, update refs in localdev
+
+### Step-by-Step
+
+```bash
+# 1. Create matching branches across repos
+cd curatore-backend && git checkout -b feature/bulk-upload
+cd ../curatore-frontend && git checkout -b feature/bulk-upload
+cd ../curatore-mcp-service && git checkout -b feature/bulk-upload
+
+# 2. Develop and test locally (all branches checked out)
+./scripts/dev-up.sh --with-postgres
+# ... make changes, run dev-check.sh ...
+
+# 3. Push and create PRs in dependency order
+cd curatore-backend && git push -u origin feature/bulk-upload
+gh pr create --base main --title "feat(api): add bulk upload endpoint" --body "..."
+
+cd ../curatore-mcp-service && git push -u origin feature/bulk-upload
+gh pr create --base main --title "feat(tools): add bulk upload tool" --body "Cross-repo: backend#123"
+
+cd ../curatore-frontend && git push -u origin feature/bulk-upload
+gh pr create --base main --title "feat(ui): bulk upload page" --body "Cross-repo: backend#123, mcp#34"
+
+# 4. Merge in order: backend → mcp → frontend
+# 5. Update localdev submodule refs
+cd ..
+git checkout -b chore/bulk-upload-refs
+git submodule update --remote curatore-backend curatore-mcp-service curatore-frontend
+git add curatore-backend curatore-mcp-service curatore-frontend
+git commit -m "chore(submodules): update refs for bulk upload feature
+
+backend: feat(api) - bulk upload endpoint (#123)
+mcp: feat(tools) - bulk upload tool (#34)
+frontend: feat(ui) - bulk upload page (#87)"
+git push -u origin chore/bulk-upload-refs
+gh pr create --base main
+```
+
+### Merge Order Rules
+
+| Change Type | Merge Order |
+|------------|-------------|
+| New API endpoint + frontend page | backend → frontend |
+| New API + MCP tool + frontend | backend → mcp → frontend |
+| Shared config change | backend → all consumers |
+| Database migration + API change | backend (single PR: migration + API) |
+| Frontend-only change | frontend only |
+| Extraction engine change | document-service → backend (if API changed) |
+
 ## Submodule Workflow
 
 ```bash
-# Make changes in a submodule
-cd curatore-backend && git add -A && git commit -m "message" && git push
+# Create a feature branch in a submodule
+cd curatore-backend
+git checkout -b feature/my-change
 
-# Update submodule reference in localdev
-cd .. && git add curatore-backend && git commit -m "Update backend ref"
+# Work, commit with conventional format, push
+git add <files>
+git commit -m "feat(api): add new endpoint"
+git push -u origin feature/my-change
 
-# Pull all submodule updates
+# Create PR, get it reviewed and merged
+gh pr create --base main
+
+# After PR merges, update localdev submodule reference
+cd ..
+git checkout -b chore/update-backend-ref
+git submodule update --remote curatore-backend
+git add curatore-backend
+git commit -m "chore(submodules): update backend ref
+
+backend: feat(api) - add new endpoint (#42)"
+git push -u origin chore/update-backend-ref
+gh pr create --base main
+
+# Pull all submodule updates (for other developers)
 git submodule update --remote
 ```
+
+## Agent Rules for Branching & Commits
+
+These rules govern how AI agents (Claude Code, etc.) interact with git in this project.
+
+### User Approval Required
+
+Agents **must ask the user for confirmation** before:
+
+| Action | Why |
+|--------|-----|
+| Creating a branch | User should agree on branch name and scope |
+| Making a commit | User should review changes and approve the message |
+| Pushing to a remote | Pushes are visible to the team |
+| Creating a PR | PRs trigger notifications and CI |
+| Merging or closing a PR | Irreversible team-visible action |
+| Force-pushing or resetting | Destructive — could lose work |
+| Deleting a branch | Could lose unmerged work |
+
+### Pre-Commit Checklist (Agents)
+
+Before creating any commit, agents must:
+
+1. **Run quality checks** — `./scripts/dev-check.sh --service=<affected>` (or full sweep for cross-service changes)
+2. **Verify all phases pass** — lint, security, tests. Fix failures before committing.
+3. **Stage specific files** — use `git add <file1> <file2>`, not `git add -A` or `git add .`
+4. **Use conventional commit format** — see [Commit Message Convention](#commit-message-convention)
+5. **Show the user the diff and proposed message** — wait for approval before committing
+6. **Never skip hooks** — no `--no-verify`, no `--no-gpg-sign`
+
+### Post-Push Checklist (Agents)
+
+After pushing, agents must:
+
+1. **Verify CI passes** — `gh run list --repo Amivero-LLC/<repo> --limit 3`
+2. **Report CI status to the user** — don't silently assume success
+3. **If CI fails** — investigate logs with `gh run view <id> --log`, fix, and push again
+
+### Branch Naming (Agents)
+
+When an agent needs to create a branch:
+
+1. Propose the branch name following the [Branch Types](#branch-types) convention
+2. Include issue number if the user referenced one
+3. Wait for user approval before creating
+
+### Cross-Service Changes (Agents)
+
+When a task requires changes across multiple repos:
+
+1. **Plan first** — list all affected repos and the merge order
+2. **Present the plan to the user** for approval before starting
+3. **Use matching branch names** across repos
+4. **Work in dependency order** — backend before consumers
+5. **Link companion PRs** in each PR description
+6. **Update localdev refs** after all submodule PRs merge
 
 ## Service-Specific Guidance
 
