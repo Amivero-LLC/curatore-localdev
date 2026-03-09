@@ -90,9 +90,15 @@ microsoft_graph:
   client_secret: __MS_CLIENT_SECRET__
   graph_scope: https://graph.microsoft.com/.default
   graph_base_url: https://graph.microsoft.com/v1.0
-  enable_email: __MS_ENABLE_EMAIL__
-  email_sender_user_id: __MS_EMAIL_SENDER__
 
+# ============================================================================
+# Email Service Configuration
+# ============================================================================
+email:
+  backend: __EMAIL_BACKEND__
+  from_address: __EMAIL_FROM_ADDRESS__
+  from_name: __EMAIL_FROM_NAME__
+__EMAIL_BACKEND_CONFIG__
 # ============================================================================
 # SAM.gov Opportunities API Configuration
 # ============================================================================

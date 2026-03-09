@@ -138,6 +138,17 @@ EMAIL_BACKEND="$(env_get EMAIL_BACKEND "console")"
 EMAIL_FROM_ADDRESS="$(env_get EMAIL_FROM_ADDRESS "noreply@curatore.app")"
 EMAIL_FROM_NAME="$(env_get EMAIL_FROM_NAME "Curatore")"
 MS_EMAIL_SENDER="$(env_get MS_EMAIL_SENDER)"
+MS_EMAIL_TENANT_ID="$(env_get MS_EMAIL_TENANT_ID)"
+MS_EMAIL_CLIENT_ID="$(env_get MS_EMAIL_CLIENT_ID)"
+MS_EMAIL_CLIENT_SECRET="$(env_get MS_EMAIL_CLIENT_SECRET)"
+SMTP_HOST="$(env_get SMTP_HOST)"
+SMTP_PORT="$(env_get SMTP_PORT "587")"
+SMTP_USERNAME="$(env_get SMTP_USERNAME)"
+SMTP_PASSWORD="$(env_get SMTP_PASSWORD)"
+SENDGRID_API_KEY="$(env_get SENDGRID_API_KEY)"
+AWS_SES_REGION="$(env_get AWS_SES_REGION "us-east-1")"
+AWS_SES_ACCESS_KEY_ID="$(env_get AWS_SES_ACCESS_KEY_ID)"
+AWS_SES_SECRET_ACCESS_KEY="$(env_get AWS_SES_SECRET_ACCESS_KEY)"
 SEARCH_ENABLED="$(env_get SEARCH_ENABLED "true")"
 LOG_LEVEL="$(env_get LOG_LEVEL "INFO")"
 CELERY_CONCURRENCY_DOCUMENTS="$(env_get CELERY_CONCURRENCY_DOCUMENTS "2")"
@@ -203,10 +214,7 @@ MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
 MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
 
-# Email
-EMAIL_BACKEND=${EMAIL_BACKEND}
-EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
-EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
+# Email (config is in config.yml email: section — only FRONTEND_BASE_URL needed here for link generation)
 FRONTEND_BASE_URL=http://localhost:3000
 
 # Seeding
@@ -239,13 +247,6 @@ else
   MS_GRAPH_ENABLED="false"
 fi
 
-# Enable MS Graph email when Graph is configured and a sender address is set
-if [[ "$MS_GRAPH_ENABLED" == "true" && -n "$MS_EMAIL_SENDER" ]]; then
-  MS_ENABLE_EMAIL="true"
-else
-  MS_ENABLE_EMAIL="false"
-fi
-
 # Determine SAM.gov enabled state
 if [[ -n "$SAM_API_KEY" ]]; then
   SAM_ENABLED="true"
@@ -253,8 +254,64 @@ else
   SAM_ENABLED="false"
 fi
 
+# Build EMAIL_BACKEND_CONFIG block based on EMAIL_BACKEND value
+EMAIL_BACKEND_CONFIG=""
+case "$EMAIL_BACKEND" in
+  microsoft_graph)
+    # Use email-specific Graph credentials if set, otherwise fall back to SharePoint Graph creds
+    _email_tenant="${MS_EMAIL_TENANT_ID:-$MS_TENANT_ID}"
+    _email_client="${MS_EMAIL_CLIENT_ID:-$MS_CLIENT_ID}"
+    _email_secret="${MS_EMAIL_CLIENT_SECRET:-$MS_CLIENT_SECRET}"
+    if [[ -n "$_email_tenant" && -n "$_email_client" && -n "$_email_secret" && -n "$MS_EMAIL_SENDER" ]]; then
+      EMAIL_BACKEND_CONFIG="  microsoft_graph:
+    tenant_id: ${_email_tenant}
+    client_id: ${_email_client}
+    client_secret: ${_email_secret}
+    sender_user_id: ${MS_EMAIL_SENDER}"
+    else
+      warn "EMAIL_BACKEND=microsoft_graph but missing credentials. Email will fall back to console."
+    fi
+    ;;
+  smtp)
+    if [[ -n "$SMTP_HOST" ]]; then
+      EMAIL_BACKEND_CONFIG="  smtp:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    use_tls: true"
+    else
+      warn "EMAIL_BACKEND=smtp but SMTP_HOST not set. Email will fall back to console."
+    fi
+    ;;
+  ses)
+    EMAIL_BACKEND_CONFIG="  aws_ses:
+    region: ${AWS_SES_REGION}"
+    if [[ -n "$AWS_SES_ACCESS_KEY_ID" && -n "$AWS_SES_SECRET_ACCESS_KEY" ]]; then
+      EMAIL_BACKEND_CONFIG="${EMAIL_BACKEND_CONFIG}
+    access_key_id: ${AWS_SES_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SES_SECRET_ACCESS_KEY}"
+    fi
+    ;;
+  sendgrid)
+    if [[ -n "$SENDGRID_API_KEY" ]]; then
+      EMAIL_BACKEND_CONFIG="  sendgrid:
+    api_key: ${SENDGRID_API_KEY}"
+    else
+      warn "EMAIL_BACKEND=sendgrid but SENDGRID_API_KEY not set. Email will fall back to console."
+    fi
+    ;;
+  console|"")
+    # No sub-config needed for console
+    ;;
+  *)
+    warn "Unknown EMAIL_BACKEND: ${EMAIL_BACKEND}. Defaulting to console."
+    ;;
+esac
+
 # Use sed to substitute all placeholders.
 # We use | as delimiter to avoid conflicts with URLs containing /
+# First pass: sed for simple single-line substitutions
 sed \
   -e "s|__OPENAI_API_KEY__|${OPENAI_API_KEY}|g" \
   -e "s|__OPENAI_BASE_URL__|${OPENAI_BASE_URL}|g" \
@@ -279,11 +336,28 @@ sed \
   -e "s|__MS_TENANT_ID__|${MS_TENANT_ID}|g" \
   -e "s|__MS_CLIENT_ID__|${MS_CLIENT_ID}|g" \
   -e "s|__MS_CLIENT_SECRET__|${MS_CLIENT_SECRET}|g" \
-  -e "s|__MS_ENABLE_EMAIL__|${MS_ENABLE_EMAIL}|g" \
-  -e "s|__MS_EMAIL_SENDER__|${MS_EMAIL_SENDER}|g" \
   -e "s|__SAM_ENABLED__|${SAM_ENABLED}|g" \
   -e "s|__SAM_API_KEY__|${SAM_API_KEY}|g" \
-  "${TEMPLATE}" > "${ROOT}/curatore-backend/config.yml"
+  -e "s|__EMAIL_BACKEND__|${EMAIL_BACKEND:-console}|g" \
+  -e "s|__EMAIL_FROM_ADDRESS__|${EMAIL_FROM_ADDRESS}|g" \
+  -e "s|__EMAIL_FROM_NAME__|${EMAIL_FROM_NAME}|g" \
+  "${TEMPLATE}" > "${ROOT}/curatore-backend/config.yml.tmp"
+
+# Second pass: replace multi-line __EMAIL_BACKEND_CONFIG__ placeholder
+if [[ -n "$EMAIL_BACKEND_CONFIG" ]]; then
+  # Write the config block to a temp file for awk substitution
+  echo "$EMAIL_BACKEND_CONFIG" > "${ROOT}/curatore-backend/.email_config_block.tmp"
+  awk '/^__EMAIL_BACKEND_CONFIG__$/{
+    while((getline line < "'"${ROOT}/curatore-backend/.email_config_block.tmp"'") > 0)
+      print line
+    next
+  }1' "${ROOT}/curatore-backend/config.yml.tmp" > "${ROOT}/curatore-backend/config.yml"
+  rm -f "${ROOT}/curatore-backend/.email_config_block.tmp"
+else
+  # No backend config — just remove the placeholder line
+  grep -v '__EMAIL_BACKEND_CONFIG__' "${ROOT}/curatore-backend/config.yml.tmp" > "${ROOT}/curatore-backend/config.yml"
+fi
+rm -f "${ROOT}/curatore-backend/config.yml.tmp"
 
 # --------------------------------------------------------------------------
 # 3. Generate curatore-document-service/.env
