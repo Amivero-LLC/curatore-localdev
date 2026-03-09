@@ -182,16 +182,6 @@ else
   echo "   MS Graph Client Secret: ${current_secret:0:8}... (already set)"
 fi
 
-current_sender="$(env_get MS_EMAIL_SENDER)"
-if [[ -z "$current_sender" ]]; then
-  echo "   Email sender address enables invitation emails via Microsoft Graph."
-  echo "   (e.g., noreply@yourcompany.com — must be a valid mailbox or shared mailbox)"
-  val="$(prompt_value "MS Graph Email Sender" MS_EMAIL_SENDER "$current_sender")"
-  [[ -n "$val" ]] && env_set MS_EMAIL_SENDER "$val"
-else
-  echo "   MS Graph Email Sender: ${current_sender:0:8}... (already set)"
-fi
-
 # Embedding model selection
 current_embed="$(env_get LLM_EMBEDDING_MODEL)"
 if [[ -z "$current_embed" ]]; then
@@ -208,6 +198,69 @@ if [[ -z "$current_embed" ]]; then
   esac
 else
   echo "   Embedding model: ${current_embed} (already set)"
+fi
+
+# Email backend
+current_email="$(env_get EMAIL_BACKEND)"
+if [[ -z "$current_email" || "$current_email" == "console" ]]; then
+  echo ""
+  echo "   Email backend for sending platform emails (invitations, password resets):"
+  echo "     1) console          (dev — logs emails to stdout, default)"
+  echo "     2) microsoft_graph  (Microsoft 365 Graph API)"
+  echo "     3) smtp             (SMTP server)"
+  echo "     4) ses              (AWS Simple Email Service)"
+  echo "     5) sendgrid         (SendGrid API)"
+  read -rp "  Email backend [1-5] (default: 1): " email_choice
+  case "${email_choice:-1}" in
+    2)
+      env_set EMAIL_BACKEND "microsoft_graph"
+      echo ""
+      echo "   Microsoft Graph email credentials (separate from SharePoint):"
+      echo "   Leave blank to reuse SharePoint Graph credentials."
+      val="$(prompt_value "MS Email Tenant ID" MS_EMAIL_TENANT_ID "$(env_get MS_EMAIL_TENANT_ID)")"
+      [[ -n "$val" ]] && env_set MS_EMAIL_TENANT_ID "$val"
+      val="$(prompt_value "MS Email Client ID" MS_EMAIL_CLIENT_ID "$(env_get MS_EMAIL_CLIENT_ID)")"
+      [[ -n "$val" ]] && env_set MS_EMAIL_CLIENT_ID "$val"
+      val="$(prompt_value "MS Email Client Secret" MS_EMAIL_CLIENT_SECRET "$(env_get MS_EMAIL_CLIENT_SECRET)")"
+      [[ -n "$val" ]] && env_set MS_EMAIL_CLIENT_SECRET "$val"
+      val="$(prompt_value "MS Email Sender (e.g., noreply@company.com)" MS_EMAIL_SENDER "$(env_get MS_EMAIL_SENDER)")"
+      [[ -n "$val" ]] && env_set MS_EMAIL_SENDER "$val"
+      ;;
+    3)
+      env_set EMAIL_BACKEND "smtp"
+      echo ""
+      val="$(prompt_value "SMTP Host" SMTP_HOST "$(env_get SMTP_HOST)")"
+      [[ -n "$val" ]] && env_set SMTP_HOST "$val"
+      val="$(prompt_value "SMTP Port" SMTP_PORT "$(env_get SMTP_PORT "587")")"
+      [[ -n "$val" ]] && env_set SMTP_PORT "$val"
+      val="$(prompt_value "SMTP Username" SMTP_USERNAME "$(env_get SMTP_USERNAME)")"
+      [[ -n "$val" ]] && env_set SMTP_USERNAME "$val"
+      val="$(prompt_value "SMTP Password" SMTP_PASSWORD "$(env_get SMTP_PASSWORD)")"
+      [[ -n "$val" ]] && env_set SMTP_PASSWORD "$val"
+      ;;
+    4)
+      env_set EMAIL_BACKEND "ses"
+      echo ""
+      val="$(prompt_value "AWS SES Region" AWS_SES_REGION "$(env_get AWS_SES_REGION "us-east-1")")"
+      [[ -n "$val" ]] && env_set AWS_SES_REGION "$val"
+      echo "   Leave access keys blank to use IRSA (EKS pod identity)."
+      val="$(prompt_value "AWS SES Access Key ID (optional)" AWS_SES_ACCESS_KEY_ID "$(env_get AWS_SES_ACCESS_KEY_ID)")"
+      [[ -n "$val" ]] && env_set AWS_SES_ACCESS_KEY_ID "$val"
+      val="$(prompt_value "AWS SES Secret Access Key (optional)" AWS_SES_SECRET_ACCESS_KEY "$(env_get AWS_SES_SECRET_ACCESS_KEY)")"
+      [[ -n "$val" ]] && env_set AWS_SES_SECRET_ACCESS_KEY "$val"
+      ;;
+    5)
+      env_set EMAIL_BACKEND "sendgrid"
+      echo ""
+      val="$(prompt_value "SendGrid API Key" SENDGRID_API_KEY "$(env_get SENDGRID_API_KEY)")"
+      [[ -n "$val" ]] && env_set SENDGRID_API_KEY "$val"
+      ;;
+    *)
+      env_set EMAIL_BACKEND "console"
+      ;;
+  esac
+else
+  echo "   Email backend: ${current_email} (already set)"
 fi
 
 echo ""
