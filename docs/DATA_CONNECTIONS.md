@@ -2139,7 +2139,7 @@ ALLOWED_MODELS = {
 }
 ```
 
-3. **`discover_data_sources` function** (`primitives/search/discover_data_sources.py`) — Query your config tables so the AI knows about configured instances.
+3. **`discover_data_sources` function** (`primitives/search/discover_data_sources.py`) — Query your config tables so the AI knows about configured instances. Note: some data sources (e.g., Salesforce) support multiple import paths — `discover_data_sources` checks both Connection records (live API) and actual data records (CSV/ZIP imports) to avoid false negatives.
 
 ### Tool Contracts (Auto-Generated)
 
