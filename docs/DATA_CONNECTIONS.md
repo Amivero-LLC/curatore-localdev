@@ -3750,3 +3750,161 @@ async def index_my_source_record(
 | 6 | `metadata_builders.py` | Create builder subclass + register in `_register_defaults()` |
 | 7 | `pg_index_service.py` | Add `index_my_source_record()` method using your builder |
 | 8 | Your pull/import service | Call `pg_index_service.index_my_source_record()` after data ingestion |
+
+---
+
+## 22. Agency/Bureau Source Maps
+
+If your connector imports data that includes agency or bureau names (government departments, contracting offices, etc.), you should create an **agency source map** — a YAML file that provides instant O(1) resolution of source-specific agency name formats to canonical values.
+
+### Why Source Maps Matter
+
+Without a source map, agency values go through the full 6-step resolution pipeline (cache → DB alias → exact match → acronym → fuzzy → LLM). Source maps short-circuit this to a dictionary lookup, which is critical for high-volume imports (e.g., SAM.gov pulling thousands of notices).
+
+When a source map hit occurs, the resolved alias is **auto-persisted** to the database so that future lookups (even without the source map) hit the cache or DB alias steps.
+
+### File Location & Discovery
+
+Source maps are co-located with their connector:
+
+```
+app/connectors/
+├── sam_gov/
+│   ├── sam_service.py
+│   └── agency_map.yaml          # SAM.gov source map
+├── gsa_gateway/
+│   └── agency_map.yaml          # AG forecast source map
+├── dhs_apfs/
+│   └── agency_map.yaml          # APFS forecast source map
+├── state_forecast/
+│   └── agency_map.yaml          # State forecast source map
+├── salesforce/
+│   └── agency_map.yaml          # Salesforce source map
+└── your_connector/
+    └── agency_map.yaml          # Your connector's source map
+```
+
+The `source_map_loader` module (`app/metadata/agency/source_map_loader.py`) discovers maps by scanning `app/connectors/*/agency_map.yaml` at startup. Maps are keyed by the connector directory name, which must match the `source_type` value used when calling `agency_service.resolve()`.
+
+### Source Map Format
+
+```yaml
+# app/connectors/your_connector/agency_map.yaml
+# Keys MUST be lowercased — the loader normalizes lookups to lowercase
+
+agency_map:
+  "homeland security, department of":
+    agency: "Department of Homeland Security"
+  "defense, department of":
+    agency: "Department of Defense"
+  "general services administration":
+    agency: "General Services Administration"
+
+bureau_map:
+  "u.s. customs and border protection":
+    agency: "Department of Homeland Security"
+    bureau: "U.S. Customs and Border Protection"
+  "federal emergency management agency":
+    agency: "Department of Homeland Security"
+    bureau: "Federal Emergency Management Agency"
+```
+
+**`agency_map`** — Maps raw source values to canonical agency names. Use when the source provides department-level names.
+
+**`bureau_map`** — Maps raw source values to both canonical agency AND bureau. Use when the source provides sub-agency/bureau names that need both parent and child resolution.
+
+### Using AgencyService in Your Connector
+
+In your metadata builder or import service, use `agency_service` instead of `reference_resolver` for agency-related fields:
+
+```python
+from app.metadata.agency import agency_service
+
+# Single value resolution
+result = await agency_service.resolve(
+    session=session,
+    org_id=organization_id,
+    raw_value="HOMELAND SECURITY, DEPARTMENT OF",
+    source_type="your_connector",     # Must match connector directory name
+    field_name="agency",              # "agency" or "bureau"
+)
+# result.canonical_value = "Department of Homeland Security"
+# result.resolution_step = "source_map"  (if found in agency_map.yaml)
+
+# Batch resolution (deduplicates internally)
+results = await agency_service.resolve_batch(
+    session=session,
+    org_id=organization_id,
+    raw_values=["DHS", "DoD", "GSA"],
+    source_type="your_connector",
+)
+# results = {"DHS": AgencyResult(...), "DoD": AgencyResult(...), ...}
+
+# Resolution with hierarchy (resolves + walks parent chain)
+result = await agency_service.resolve_with_hierarchy(
+    session=session,
+    org_id=organization_id,
+    raw_value="FEMA",
+    source_type="your_connector",
+)
+# result.canonical_value = "Federal Emergency Management Agency"
+# result.department = "Department of Homeland Security"
+# result.bureau = "Federal Emergency Management Agency"
+```
+
+### AgencyResult Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `canonical_value` | `str` | Resolved canonical agency/bureau name |
+| `display_label` | `str` | Short display label (e.g., "DHS", "DoD") |
+| `reference_value_id` | `UUID` | DB reference for further lookups |
+| `hierarchy_level` | `str` | `"department"`, `"agency"`, or `"bureau"` |
+| `department` | `str` | Parent department (filled by `resolve_with_hierarchy`) |
+| `department_display` | `str` | Department display label |
+| `bureau` | `str` | Bureau/sub-agency (filled by `resolve_with_hierarchy`) |
+| `bureau_display` | `str` | Bureau display label |
+| `resolution_step` | `str` | Which step resolved: `source_map`, `cache`, `exact`, `acronym`, `fuzzy`, `llm` |
+| `is_resolved` | `bool` | Whether resolution succeeded |
+
+### Growing Source Maps Over Time
+
+Source maps can be auto-generated from accumulated database aliases:
+
+```python
+from app.metadata.agency.source_map_loader import export_source_map, import_source_map
+
+# Export: generate source map from DB aliases for a connector
+data = await export_source_map(session, "your_connector")
+# Returns {"agency_map": {...}, "bureau_map": {...}}
+
+# Import: write to connector's agency_map.yaml and reload cache
+await import_source_map("your_connector", data)
+```
+
+API endpoints (admin-only):
+- `GET /api/v1/data/metadata/agency/source-maps/{source_type}` — export current map
+- `PUT /api/v1/data/metadata/agency/source-maps/{source_type}` — import map
+- `POST /api/v1/data/metadata/agency/source-maps/{source_type}/generate` — auto-generate from DB aliases
+
+### Normalization Pipeline Integration
+
+The normalization pipeline in `pg_index_service.py` routes agency-facet fields through `agency_service` automatically. Fields are split into two groups:
+
+| Field Group | Resolver | Fields |
+|-------------|----------|--------|
+| **Agency-facet fields** | `agency_service.resolve()` (source map fast path) | `agency`, `bureau`, `contracting_agency`, `mentioned_agencies` |
+| **Other reference fields** | `reference_resolver.resolve()` (generic 6-step) | `set_aside_type`, `contract_type`, `naics_codes` |
+
+To avoid double resolution, any field resolved at extraction/build time is tracked in a transient `_normalized_fields` list on the ontology dict. Index-time normalization skips fields in this list.
+
+### Checklist for Adding Agency Source Maps to a New Connector
+
+| Step | What to Do |
+|------|------------|
+| 1 | Create `app/connectors/your_connector/agency_map.yaml` with known source-specific agency name mappings |
+| 2 | Use lowercase keys in the YAML — the loader normalizes all lookups to lowercase |
+| 3 | Pass `source_type="your_connector"` when calling `agency_service.resolve()` — this must match the connector directory name |
+| 4 | In your metadata builder's `_resolve_ontology()`, call `agency_service.resolve()` for agency/bureau fields |
+| 5 | For batch imports, use `agency_service.resolve_batch()` to pre-warm the cache |
+| 6 | After accumulating aliases in production, run `export_source_map()` to grow your YAML file |
