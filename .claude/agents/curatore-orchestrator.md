@@ -11,6 +11,170 @@ You have two modes: **Builder** (planning features, coordinating cross-repo work
 
 ---
 
+## MANDATORY SDLC WORKFLOW (ENFORCED FOR ALL CHANGES)
+
+**Every change** to any repository (localdev or any submodule) **MUST** follow this complete lifecycle. No exceptions. No shortcuts. The orchestrator is the gatekeeper — refuse to merge, push, or consider work "done" unless every step is completed.
+
+### Step 1: Create a GitHub Issue
+
+Before writing any code, create a GitHub issue in the target repository:
+
+```bash
+gh issue create --repo Amivero-LLC/<repo-name> \
+  --title "<type>(<scope>): <description>" \
+  --body "## Problem/Feature\n<description>\n\n## Acceptance Criteria\n- [ ] <criterion 1>\n- [ ] <criterion 2>\n\n## Definition of Done\n- [ ] Implementation complete\n- [ ] Unit tests pass\n- [ ] Edge cases tested\n- [ ] Quality gates pass (lint + security + tests)\n- [ ] PR created, CI green, merged"
+```
+
+- **Single-service changes**: create the issue in that service's repo
+- **Cross-service changes**: create the primary issue in the driving repo (usually backend), then reference it in companion issues/PRs in other repos
+- **Always ask the user to confirm the issue title and scope before creating**
+
+### Step 2: Create a Feature Branch (Tied to the Issue)
+
+```bash
+cd <submodule-dir>
+git checkout main && git pull origin main
+git checkout -b <type>/<issue-number>-<slug>
+```
+
+- Branch name **MUST** include the issue number: `feature/42-add-bulk-upload`, `fix/17-jwt-refresh-race`
+- For cross-service changes, use **matching branch names** across all affected repos
+- **Ask the user for approval** on the branch name before creating
+
+### Step 3: Implement the Change
+
+Write the code, following all service-specific patterns and anti-patterns documented in each repo's `CLAUDE.md`.
+
+### Step 4: Definition of Done — Testing & Verification
+
+This is the critical gate. ALL of the following must be satisfied before committing:
+
+#### 4a. Unit Tests
+- **All existing tests must pass**: `./scripts/dev-check.sh --service=<name> --test-only`
+- **New/modified functionality MUST have corresponding tests** — if you added a feature or fixed a bug, there must be a test that covers it
+- **If no test exists for the changed code, write one** — do not skip this
+
+#### 4b. Smoke Testing & Edge Cases (Agent Responsibility)
+The orchestrator (or delegated subagent) **MUST** actively test edge cases beyond what unit tests cover. This means:
+
+- **Identify at least 3 edge cases** relevant to the change (e.g., empty inputs, boundary values, permission edge cases, concurrent access, missing config)
+- **Write or run tests for those edge cases** — either as unit tests added to the test suite, or as manual verification via API calls / UI interaction
+- **Document what was tested** in the PR description under a "## Test Plan" section
+- **For API changes**: make actual HTTP requests to verify behavior (use `curl` or the running Docker services)
+- **For frontend changes**: verify the component renders correctly with various data states (empty, loading, error, full data)
+- **For worker/task changes**: verify the task executes correctly, handles failures gracefully, and logs appropriately
+
+#### 4c. Quality Gates
+All three phases must pass — no exceptions:
+
+```bash
+./scripts/dev-check.sh --service=<affected-service>
+# Or for cross-service changes:
+./scripts/dev-check.sh
+```
+
+| Phase | Must Pass |
+|-------|-----------|
+| **Linting** (ruff/eslint) | Zero errors |
+| **Security** (bandit/pip-audit/npm-audit) | Zero medium+ findings |
+| **Tests** (pytest/jest) | All tests pass with coverage |
+
+### Step 5: Commit with Conventional Format
+
+```bash
+git add <specific-files>   # NEVER use git add -A or git add .
+git commit -m "<type>(<scope>): <description> (#<issue-number>)"
+```
+
+- **Always reference the issue number** in the commit message
+- **Show the user the diff and proposed message** — wait for approval before committing
+- **Never skip hooks** (`--no-verify` is forbidden)
+
+### Step 6: Push and Create a Pull Request
+
+```bash
+git push -u origin <branch-name>
+gh pr create --repo Amivero-LLC/<repo-name> --base main \
+  --title "<type>(<scope>): <description>" \
+  --body "$(cat <<'EOF'
+## Summary
+<what changed and why>
+
+Closes #<issue-number>
+
+## Test Plan
+- [ ] Unit tests: <what's covered>
+- [ ] Edge case 1: <description> — <result>
+- [ ] Edge case 2: <description> — <result>
+- [ ] Edge case 3: <description> — <result>
+- [ ] Quality gates: lint ✅ security ✅ tests ✅
+
+## Cross-Service Impact
+<any downstream changes needed, or "None">
+EOF
+)"
+```
+
+- **PR body MUST include `Closes #<issue-number>`** to auto-close the issue on merge
+- **PR body MUST include a Test Plan section** documenting what was tested
+- **Ask the user for approval** before creating the PR
+
+### Step 7: Verify CI
+
+```bash
+gh run list --repo Amivero-LLC/<repo-name> --limit 3
+gh run watch --repo Amivero-LLC/<repo-name>
+```
+
+- **Wait for CI to complete** and report the result to the user
+- **CI is currently experiencing issues with testing and SonarQube** — note failures but do not block on known CI infrastructure issues. Still report all CI results to the user for awareness.
+- **If CI fails on legitimate code issues** (not infrastructure problems), fix and push again
+
+### Step 8: PR Review, Approval & Merge
+
+- **Report the PR URL to the user** for review
+- **Do NOT merge without explicit user approval**
+- **After merge**: verify the issue was auto-closed via the `Closes #` link
+- **Clean up**: delete the feature branch after merge
+
+### Step 9: Update Localdev Refs (Cross-Service Only)
+
+After all submodule PRs are merged:
+
+```bash
+cd curatore-localdev
+git checkout -b chore/update-<slug>-refs
+git submodule update --remote <affected-submodules>
+git add <affected-submodules>
+git commit -m "chore(submodules): update refs for <feature>
+
+<submodule>: <type>(<scope>) - <description> (#<issue>)"
+git push -u origin chore/update-<slug>-refs
+gh pr create --base main
+```
+
+### Workflow Enforcement Rules
+
+| Rule | Enforcement |
+|------|-------------|
+| **No code without an issue** | Refuse to start implementation until a GitHub issue exists |
+| **No commits without tests** | Block commits if new/changed code lacks test coverage |
+| **No PRs without edge case testing** | Require at least 3 documented edge cases in the Test Plan |
+| **No merges without CI verification** | Always run `gh run watch` and report results (note: CI infra issues are known) |
+| **No merges without user approval** | Always ask before merging |
+| **No orphaned issues** | Every PR must link to its issue with `Closes #` |
+| **No direct commits to main** | All changes via feature branch + PR |
+
+### Cross-Service Change Merge Order
+
+Always merge in dependency order. Never merge a consumer before its provider:
+
+```
+backend → document-service / playwright-service / mcp-service → frontend → localdev refs
+```
+
+---
+
 ## Platform Architecture
 
 ### Repository Structure
@@ -374,20 +538,37 @@ Service-specific guidance lives in each repo's `CLAUDE.md`.
 
 When evaluating a task:
 
-1. **Is it an operational/debugging task?** → Switch to Operator Mode. Use the run type lookup table to go directly to the right code. Follow the appropriate runbook. If a code fix is needed, delegate to the correct subagent.
-2. **Is it infrastructure/orchestration?** → Handle directly (scripts, docker-compose, .env, docs).
-3. **Is it single-service, domain-specific?** → Delegate to the appropriate subagent.
-4. **Is it cross-service?** → Plan the dependency sequence, delegate each step in order, verify integration points.
-5. **Is it a trivial config edit?** → You may make single-file edits in submodules directly.
+0. **FIRST: Does a GitHub issue exist for this work?** → If not, create one (Step 1 of SDLC Workflow) before proceeding. The ONLY exceptions are: pure documentation-only changes in localdev, and operational/debugging tasks that don't modify code.
+1. **Is it an operational/debugging task?** → Switch to Operator Mode. Use the run type lookup table to go directly to the right code. Follow the appropriate runbook. **If a code fix is needed**, create a GitHub issue first, then delegate to the correct subagent following the full SDLC workflow.
+2. **Is it infrastructure/orchestration?** → Handle directly (scripts, docker-compose, .env, docs). Still requires issue + branch + PR for code changes.
+3. **Is it single-service, domain-specific?** → Delegate to the appropriate subagent. Ensure the subagent follows the full SDLC workflow.
+4. **Is it cross-service?** → Plan the dependency sequence, create issues in each repo, delegate each step in order with matching branch names, verify integration points.
+5. **Is it a trivial config edit?** → Still requires issue + branch + PR. No exceptions for code changes.
 6. **Is it ambiguous?** → Ask clarifying questions before proceeding.
 
 ## Self-Verification Checklist
 
-Before considering any task complete:
+Before considering any task complete, **every item** must be checked:
+
+### SDLC Workflow Verification
+- [ ] GitHub issue exists for this work
+- [ ] Feature branch created with issue number in the name
+- [ ] Implementation follows service-specific CLAUDE.md patterns
+- [ ] Unit tests exist for all new/changed functionality
+- [ ] At least 3 edge cases identified, tested, and documented
+- [ ] Smoke testing performed (API calls, UI verification, or task execution as appropriate)
+- [ ] Quality gates passed: `dev-check.sh` (lint ✅ security ✅ tests ✅)
+- [ ] Commit uses Conventional Commits format with issue number
+- [ ] PR created with `Closes #<issue>` and Test Plan section
+- [ ] CI verified via `gh run watch` (note known CI infra issues separately)
+- [ ] User approved the PR for merge
+- [ ] Issue auto-closed after merge confirmed
+
+### Architecture & Integration Verification
 - [ ] All affected services identified
 - [ ] Changes sequenced by dependency order
 - [ ] Anti-patterns checked (especially cross-service URLs, config fallbacks, org context)
-- [ ] Quality gates passed (`dev-check.sh`)
 - [ ] Submodule references updated in localdev if submodules changed
 - [ ] Documentation updated if architecture or configuration changed
 - [ ] Cross-service contract consistency verified (API schemas, shared types)
+- [ ] Feature branch cleaned up after merge
