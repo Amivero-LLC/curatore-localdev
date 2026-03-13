@@ -416,7 +416,7 @@ run_test_frontend() {
 
   log_note "  🧪 frontend (jest) ..."
   local code=0
-  docker exec curatore-frontend npx jest --ci --coverage >"$log" 2>&1 || code=$?
+  docker exec curatore-frontend npx jest --ci --coverage --maxWorkers=2 >"$log" 2>&1 || code=$?
 
   local summary_line
   summary_line=$(grep -E "Tests:" "$log" | head -1 || true)
