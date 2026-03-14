@@ -32,7 +32,8 @@ Master map of all documentation across Curatore repositories.
 | Document | Description |
 |----------|-------------|
 | [SAM.gov](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SAM_INTEGRATION.md) | Federal contracting opportunities |
-| [Salesforce](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SALESFORCE_INTEGRATION.md) | CRM data import |
+| [Salesforce API Integration](SALESFORCE_API_INTEGRATION.md) | API sync planning, architecture, phase plan, issue tracker (localdev) |
+| [Salesforce (Backend)](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SALESFORCE_INTEGRATION.md) | CRM data import (being replaced by API sync) |
 | [SharePoint](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/SHAREPOINT_INTEGRATION.md) | Folder sync |
 | [Forecasts](https://github.com/Amivero-LLC/curatore-backend/blob/main/docs/FORECAST_INTEGRATION.md) | Acquisition forecast sources |
 
