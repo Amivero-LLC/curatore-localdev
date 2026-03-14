@@ -21,8 +21,10 @@ case "${SERVICE}" in
     docker logs -f curatore-backend
     ;;
   worker)
-    # Show all worker pool logs combined
-    docker logs -f curatore-worker-documents curatore-worker-general 2>/dev/null
+    # Show all worker pool logs combined (docker logs only accepts one container)
+    docker logs -f curatore-worker-documents 2>/dev/null &
+    docker logs -f curatore-worker-general 2>/dev/null &
+    wait
     ;;
   worker-documents)
     docker logs -f curatore-worker-documents
@@ -55,7 +57,10 @@ case "${SERVICE}" in
     docker logs -f curatore-postgres
     ;;
   all)
-    docker logs -f curatore-backend curatore-worker-documents curatore-worker-general curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp 2>/dev/null
+    for c in curatore-backend curatore-worker-documents curatore-worker-general curatore-beat curatore-redis curatore-minio curatore-frontend curatore-document-service curatore-playwright curatore-mcp; do
+      docker logs -f "$c" 2>/dev/null &
+    done
+    wait
     ;;
   *)
     echo "Usage: dev-logs.sh [backend|worker|worker-documents|worker-general|beat|frontend|mcp|document-service|playwright|minio|redis|postgres|all]"
