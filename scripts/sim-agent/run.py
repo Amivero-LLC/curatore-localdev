@@ -13,6 +13,7 @@ from persona import list_personas, load_persona
 from reporter import Reporter
 from task_runner import list_scenarios, load_scenario, run_scenario
 from transports.mcp_agent import MCPAgentTransport
+from verifier import Verifier
 
 console = Console()
 
@@ -41,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         "--verbose",
         action="store_true",
         help="Print conversation in real-time",
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip MCP verification of assistant responses",
     )
     parser.add_argument(
         "--list",
@@ -121,6 +127,13 @@ async def main() -> None:
             persona=persona,
         )
 
+        # Create verifier (shares MCP session with transport)
+        verifier = None
+        if not args.no_verify and not args.dry_run:
+            # Ensure transport's MCP session is connected
+            await transport._ensure_mcp_connected()
+            verifier = Verifier(transport._mcp_session)
+
         reporter = Reporter(transport_name=transport_label)
 
         summary = await run_scenario(
@@ -129,6 +142,7 @@ async def main() -> None:
             transport=transport,
             narrator=narrator,
             reporter=reporter,
+            verifier=verifier,
             verbose=args.verbose,
             dry_run=args.dry_run,
         )
@@ -136,13 +150,15 @@ async def main() -> None:
         narrator.close()
         all_summaries.append(summary)
 
-        met = summary["beats_met"]
-        not_met = summary["beats_not_met"]
+        v = summary.get("verified_count", 0)
+        f = summary.get("failed_count", 0)
+        e = summary.get("error_count", 0)
         duration = summary["total_duration"]
         console.print(
-            f"  Beats: [green]{met} met[/green], "
-            f"[red]{not_met} not met[/red] — "
-            f"{duration:.1f}s"
+            f"  {summary['turns']} turns, {duration:.1f}s — "
+            f"[green]{v} verified[/green], "
+            f"[red]{f} failed[/red], "
+            f"[yellow]{e} errors[/yellow]"
         )
 
         if reporter.output_dir:
@@ -154,14 +170,15 @@ async def main() -> None:
     # Final summary
     if len(all_summaries) > 1:
         console.print("\n[bold]Overall Summary:[/bold]")
-        total_met = sum(s["beats_met"] for s in all_summaries)
-        total_not = sum(s["beats_not_met"] for s in all_summaries)
+        total_v = sum(s.get("verified_count", 0) for s in all_summaries)
+        total_f = sum(s.get("failed_count", 0) for s in all_summaries)
+        total_e = sum(s.get("error_count", 0) for s in all_summaries)
         total_dur = sum(s["total_duration"] for s in all_summaries)
         console.print(
-            f"  {len(all_summaries)} scenarios, "
-            f"[green]{total_met} beats met[/green], "
-            f"[red]{total_not} not met[/red], "
-            f"{total_dur:.1f}s total"
+            f"  {len(all_summaries)} scenarios, {total_dur:.1f}s — "
+            f"[green]{total_v} verified[/green], "
+            f"[red]{total_f} failed[/red], "
+            f"[yellow]{total_e} errors[/yellow]"
         )
 
 

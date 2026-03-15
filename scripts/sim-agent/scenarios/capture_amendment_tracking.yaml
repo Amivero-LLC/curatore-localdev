@@ -1,31 +1,17 @@
 name: "Capture Amendment Tracking"
 persona: "capture_lead"
 description: |
-  Courtney is managing 5 active captures and needs to check if any of
-  her tracked solicitations have had amendments, Q&A postings, or
-  deadline changes since last week. She wants to know what changed
-  and whether it impacts her capture strategy.
+  Courtney is managing several active captures and needs to check whether
+  any of her tracked DHS solicitations have had amendments, Q&A postings,
+  or deadline changes since last week. She is prepping for the weekly
+  capture team sync and needs to brief the team on what changed and
+  whether any amendments impact the capture strategy.
 
 goal: |
-  Monitor active solicitations for amendments and changes, assess
-  impact on capture plans, and flag items needing team action.
-
-conversation_beats:
-  - intent: "Check my active DHS solicitations for recent amendments"
-    context: "Weekly capture team sync — she needs to brief the team on changes"
-    success_signal: "Response identifies specific solicitations and any amendments found"
-
-  - intent: "Did any response deadlines change?"
-    context: "Deadline shifts affect proposal resource planning"
-    success_signal: "Response addresses due date changes specifically"
-
-  - intent: "Get the full text of the most significant amendment"
-    context: "She needs to read the actual modification to assess impact"
-    success_signal: "Response includes amendment content or a summary of the changes"
-
-  - intent: "How does this affect our capture approach?"
-    context: "She wants to know if win themes or teaming need to be adjusted"
-    success_signal: "Response provides strategic assessment of the amendment's impact"
+  Check active DHS solicitations for recent amendments or modifications
+  posted in the past week. Identify any deadline changes, review the
+  content of significant amendments, and assess whether changes impact
+  the current capture approach or teaming strategy.
 
 acceptance_criteria:
   - criterion: "Recent notices/amendments retrieved via search_notices"
@@ -44,4 +30,4 @@ acceptance_criteria:
     diagnostic: "llm"
     detail: "LLM should connect amendment details to capture strategy implications"
 
-max_turns: 8
+max_turns: 6

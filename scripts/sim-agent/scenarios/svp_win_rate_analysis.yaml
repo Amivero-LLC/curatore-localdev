@@ -1,26 +1,17 @@
 name: "SVP Win Rate Analysis"
 persona: "svp_growth"
 description: |
-  Melissa wants to understand Amivero's win rate trends by agency to
-  inform where to focus BD resources next quarter. She wants to compare
-  DHS vs VA performance and identify patterns.
+  Melissa is in a quarterly strategic planning session and wants to
+  understand Amivero's win rate trends by agency — particularly DHS vs VA —
+  to decide where to focus BD resources next quarter. She needs win/loss
+  counts, patterns by opportunity type, and a comparison that supports
+  resource allocation decisions.
 
 goal: |
-  Analyze win/loss data by agency to identify trends and inform
-  strategic resource allocation decisions.
-
-conversation_beats:
-  - intent: "What's our win rate for DHS opportunities?"
-    context: "Quarterly strategic planning session"
-    success_signal: "Response includes win rate percentage or win/loss counts for DHS"
-
-  - intent: "How does VA compare?"
-    context: "She wants to compare the two priority agencies"
-    success_signal: "Response compares DHS and VA win rates side by side"
-
-  - intent: "What types of opportunities are we winning vs losing?"
-    context: "She wants to understand if set-aside type or contract size matters"
-    success_signal: "Response breaks down by opportunity characteristics"
+  Analyze win/loss data from Salesforce by agency (especially DHS vs VA),
+  identify patterns in what types of opportunities Amivero wins versus loses,
+  and present the comparison in a way that supports strategic resource
+  allocation decisions for next quarter.
 
 acceptance_criteria:
   - criterion: "Won and lost opportunities retrieved from Salesforce"
@@ -35,4 +26,4 @@ acceptance_criteria:
     diagnostic: "system_prompt"
     detail: "Output should support resource allocation decisions"
 
-max_turns: 6
+max_turns: 5

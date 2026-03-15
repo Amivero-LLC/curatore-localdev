@@ -1,30 +1,16 @@
 name: "SVP Pipeline Health Review"
 persona: "svp_growth"
 description: |
-  Melissa needs a quick pipeline health check before her weekly leadership
-  meeting. She wants to see total pipeline value, stage distribution,
-  and any opportunities with upcoming deadlines that need attention.
+  Melissa has a CEO brief in 30 minutes and needs a quick pipeline health
+  check. She wants total pipeline value, how opportunities break down by
+  stage, which ones have deadlines in the next 30 days, and a focus on
+  DHS opportunities in capture stage since that is Amivero's priority agency.
 
 goal: |
-  Get an executive-level view of pipeline health with weighted values,
-  stage distribution, and flagged items requiring decisions.
-
-conversation_beats:
-  - intent: "Show me our current pipeline — total value and stage breakdown"
-    context: "Melissa is prepping for her CEO brief in 30 minutes"
-    success_signal: "Response includes pipeline totals and breakdown by stage"
-
-  - intent: "What opportunities have proposal deadlines in the next 30 days?"
-    context: "She needs to know what's urgent and whether teams are resourced"
-    success_signal: "Response lists specific opportunities with deadlines"
-
-  - intent: "Which DHS opportunities are in capture stage?"
-    context: "DHS is Amivero's priority agency"
-    success_signal: "Response filters to DHS opportunities in capture/active stage"
-
-  - intent: "Give me a one-page summary I can brief to the CEO"
-    context: "She needs a formatted executive brief"
-    success_signal: "Structured summary with key metrics, not raw data"
+  Produce an executive-level pipeline health snapshot showing total weighted
+  value, stage distribution, near-term deadlines (next 30 days), and DHS
+  capture-stage opportunities. Format the output as a concise brief suitable
+  for a CEO audience.
 
 acceptance_criteria:
   - criterion: "Salesforce pipeline data is retrieved with stage information"
@@ -43,4 +29,4 @@ acceptance_criteria:
     diagnostic: "system_prompt"
     detail: "Output should be concise metrics, not verbose explanations"
 
-max_turns: 8
+max_turns: 5

@@ -2,30 +2,18 @@ name: "Architect Technical Requirements Analysis"
 persona: "solution_architect"
 description: |
   Russell needs to analyze the technical requirements from a DHS
-  solicitation's SOW/PWS to design the technical approach. He wants
-  to understand what needs to be built, what standards apply, and
-  what technical components are required.
+  solicitation's SOW/PWS to design the technical approach for a capture
+  already in progress. He wants the actual requirement language — not
+  summaries — so he can identify security frameworks, compliance
+  requirements, and technical components. He also wants to look at
+  past technical approaches Amivero has used on similar work.
 
 goal: |
-  Extract and analyze technical requirements from a solicitation's
-  SOW/PWS to inform technical solution design.
-
-conversation_beats:
-  - intent: "Find a DHS IT solicitation with a SOW or PWS"
-    context: "Russell is starting technical solution design for a new capture"
-    success_signal: "Response identifies a solicitation with technical requirements"
-
-  - intent: "Pull the SOW/PWS text so I can read the technical requirements"
-    context: "He needs the actual requirement language, not summaries"
-    success_signal: "Response retrieves document content with technical requirements"
-
-  - intent: "What security framework and compliance requirements are specified?"
-    context: "He needs to know FISMA level, FedRAMP requirements, NIST controls"
-    success_signal: "Response identifies security/compliance requirements from the document"
-
-  - intent: "What technical approach did we use on similar past work?"
-    context: "He wants to leverage existing architecture patterns"
-    success_signal: "Response searches internal docs for past technical approaches"
+  Pull and analyze the SOW/PWS from a DHS IT solicitation to extract
+  technical requirements, security framework mandates (FISMA, FedRAMP,
+  NIST), and compliance requirements. Then search internal documents for
+  past technical volumes and architecture documentation from similar work
+  to inform the solution design.
 
 acceptance_criteria:
   - criterion: "SOW/PWS document text is fully retrievable"
@@ -44,4 +32,4 @@ acceptance_criteria:
     diagnostic: "mcp"
     detail: "search_assets should find relevant technical volumes and architecture docs"
 
-max_turns: 8
+max_turns: 5
