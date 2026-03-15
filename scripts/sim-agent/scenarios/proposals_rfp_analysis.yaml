@@ -1,0 +1,47 @@
+name: "Proposals RFP Analysis"
+persona: "proposals_lead"
+description: |
+  Mandy just received a new RFP and needs to do an initial analysis —
+  understanding the evaluation criteria, page limits, and key
+  requirements so she can build a compliance matrix and proposal
+  schedule.
+
+goal: |
+  Analyze a new RFP to extract evaluation criteria, submission
+  requirements, and build the foundation for a compliance matrix.
+
+conversation_beats:
+  - intent: "Find a recent DHS solicitation with evaluation criteria"
+    context: "Mandy is starting proposal planning on a new RFP"
+    success_signal: "Response identifies a solicitation with enough detail to analyze"
+
+  - intent: "What are the evaluation criteria and their relative weights?"
+    context: "Section M analysis is the first step in proposal planning"
+    success_signal: "Response addresses evaluation factors, weights, or relative importance"
+
+  - intent: "Pull the full solicitation document so I can read the requirements"
+    context: "She needs the actual RFP text, not just a summary"
+    success_signal: "Response retrieves document content or provides access to it"
+
+  - intent: "What past proposals do we have for similar DHS work?"
+    context: "She wants to reuse relevant content from previous submissions"
+    success_signal: "Response searches internal documents for past proposals"
+
+acceptance_criteria:
+  - criterion: "Solicitation document content is retrievable"
+    diagnostic: "mcp"
+    detail: "get_content should return the full solicitation text"
+
+  - criterion: "Evaluation criteria extractable from document text"
+    diagnostic: "llm"
+    detail: "LLM should identify Section L/M requirements from document content"
+
+  - criterion: "Internal document search covers SharePoint and file library"
+    diagnostic: "mcp"
+    detail: "search_assets should search across all content sources"
+
+  - criterion: "Past proposal results are relevant to the RFP scope"
+    diagnostic: "llm"
+    detail: "LLM should match past performance by agency, scope, and technical area"
+
+max_turns: 8

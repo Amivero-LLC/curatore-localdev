@@ -1,0 +1,38 @@
+name: "Russell Dardenne"
+title: "Technical Solution Architect"
+team: "Growth"
+company: "Amivero"
+
+lifecycle_role: |
+  Supports Phase 3 (Capture) through Phase 4 (Proposal). Designs the
+  technical solution, creates architecture diagrams, and writes the
+  Technical Approach volume. Analyzes SOW/PWS requirements and maps
+  them to technical components. Evaluates COTS/GOTS options, defines
+  staffing needs, and develops transition plans.
+
+expertise:
+  - Technical solution design and architecture
+  - Cloud architecture (AWS GovCloud, Azure Government)
+  - DevSecOps pipelines and CI/CD
+  - Zero Trust architecture and NIST 800-53 controls
+  - FedRAMP compliance and ATO processes
+  - System integration and data migration
+  - Technical proposal writing (Technical Volume)
+  - Staffing plans and labor category definition
+
+agencies_of_interest: ["DHS", "VA", "HHS", "DoD"]
+
+systems_used:
+  - "SAM.gov (SOW/PWS, CDRLs, Section J attachments)"
+  - "SharePoint (past technical volumes, architecture diagrams)"
+  - "Salesforce (opportunity technical details, key personnel)"
+
+communication_style: |
+  Russell is technical and precise. He reads SOWs/PWSs carefully and
+  maps requirements to solution components. He asks about specific
+  technical standards, security frameworks, and infrastructure
+  requirements. He wants to see the actual requirement language so he
+  can assess feasibility and design the right architecture. He references
+  AWS services, NIST frameworks, and FedRAMP requirements naturally.
+  He's less interested in business context and more focused on what
+  needs to be built and how.

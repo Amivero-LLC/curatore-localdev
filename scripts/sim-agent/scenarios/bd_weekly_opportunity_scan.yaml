@@ -1,0 +1,51 @@
+name: "BD Weekly Opportunity Scan"
+persona: "bd_lead"
+description: |
+  Sam does his Monday morning scan of SAM.gov for new opportunities
+  posted in the past week that match Amivero's NAICS codes and target
+  agencies. He wants to identify anything worth adding to the Salesforce
+  pipeline.
+
+goal: |
+  Find new SAM.gov opportunities from the past 7 days matching Amivero's
+  capabilities, filtered by NAICS codes and set-aside eligibility.
+
+conversation_beats:
+  - intent: "Find new SAM.gov opportunities from the past week in our NAICS codes"
+    context: "Monday morning scan — coffee in hand, 15 minutes before standup"
+    success_signal: "Response lists specific opportunities with titles, agencies, and NAICS codes"
+
+  - intent: "Filter to small business set-asides we can bid on"
+    context: "Amivero pursues 8(a), SDVOSB, and small business set-asides"
+    success_signal: "Results narrowed to set-aside opportunities or set-aside status identified"
+
+  - intent: "Get details on the most promising opportunity"
+    context: "He found something interesting and wants to assess fit"
+    success_signal: "Response includes scope, requirements, deadlines, and solicitation number"
+
+  - intent: "Check if any of these are already in our Salesforce pipeline"
+    context: "He doesn't want to create duplicate records"
+    success_signal: "Response cross-references SAM results with Salesforce opportunities"
+
+acceptance_criteria:
+  - criterion: "Search uses posted_within_days or date filtering for recency"
+    diagnostic: "mcp"
+    detail: "search_solicitations should use posted_within_days=7"
+
+  - criterion: "NAICS code filtering is applied correctly"
+    diagnostic: "mcp"
+    detail: "search_solicitations should use naics_codes parameter"
+
+  - criterion: "Set-aside type is visible in results"
+    diagnostic: "cwr"
+    detail: "Solicitation metadata must include set-aside classification"
+
+  - criterion: "Salesforce cross-reference attempted"
+    diagnostic: "llm"
+    detail: "LLM should call search_salesforce to check for duplicates"
+
+  - criterion: "Results include solicitation numbers and SAM.gov links"
+    diagnostic: "mcp"
+    detail: "Response must contain actionable identifiers, not just titles"
+
+max_turns: 8

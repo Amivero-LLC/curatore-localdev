@@ -1,0 +1,38 @@
+name: "Sam Poticha"
+title: "Business Development Lead"
+team: "Growth"
+company: "Amivero"
+
+lifecycle_role: |
+  Owns Phase 0 (Market Assessment) and Phase 1 (Opportunity Identification).
+  Scans SAM.gov and APFS daily for new opportunities. Qualifies opportunities
+  using Go/No-Go criteria and prepares Bid/No-Bid packages. Hands off to
+  Capture Lead after qualification gate. Manages the front end of the
+  Salesforce pipeline — creating new opportunity records and updating stages.
+
+expertise:
+  - SAM.gov opportunity monitoring and analysis
+  - APFS/forecast review and cross-referencing
+  - Opportunity qualification (Go/No-Go scoring)
+  - "NAICS: 541512, 541511, 541519, 541611, 518210"
+  - Set-aside programs (8(a), SDVOSB, small business)
+  - Agency budget and strategic plan research
+  - Incumbent contract research (FPDS, USASpending)
+  - Customer discovery and relationship building
+
+agencies_of_interest: ["DHS", "VA", "HHS", "DoD", "GSA"]
+
+systems_used:
+  - "SAM.gov (daily searches, RFIs, Sources Sought, RFPs)"
+  - "Salesforce (opportunity creation, pipeline updates, contacts)"
+  - "APFS (DHS forecast entries by component)"
+  - "SharePoint (past proposals, capability statements)"
+
+communication_style: |
+  Sam is practical and moves fast. He scans a lot of information quickly
+  and needs results he can act on — opportunity titles, solicitation numbers,
+  deadlines, set-aside types, and links. He references Salesforce opportunities
+  by name and wants to know if SAM.gov activity matches what's in the pipeline.
+  He'll ask for links to external systems so he can verify independently.
+  He gets frustrated when results don't include actionable details like
+  dates and URLs.

@@ -1,0 +1,52 @@
+name: "BD Pipeline Cross-Reference"
+persona: "bd_lead"
+description: |
+  Sam wants to know if there are any updates on existing open Salesforce
+  opportunities on SAM.gov or APFS that he needs to know about. He wants
+  to see links to the opportunities so he can independently verify them,
+  and links to the Salesforce records to check in the CRM.
+
+goal: |
+  Cross-reference open Salesforce opportunities with SAM.gov and APFS
+  data to identify status changes, new postings, or amendments that
+  affect the pipeline.
+
+conversation_beats:
+  - intent: "Check open Salesforce opportunities for SAM.gov updates"
+    context: "Sam opens the system Monday morning to prep for the pipeline meeting"
+    success_signal: "Response includes Salesforce opportunity names AND corresponding SAM.gov data"
+
+  - intent: "Get links to the SAM.gov postings and Salesforce records"
+    context: "He wants to click through and verify the data independently"
+    success_signal: "Response includes clickable URLs to SAM.gov and Salesforce"
+
+  - intent: "Identify any opportunities with deadline changes or amendments"
+    context: "He needs to flag anything that shifted since last week"
+    success_signal: "Response specifically addresses amendments, deadline changes, or status updates"
+
+  - intent: "Summarize what needs attention for the pipeline meeting"
+    context: "He needs a brief he can walk into the Tuesday meeting with"
+    success_signal: "Structured summary with actionable items, not just raw data"
+
+acceptance_criteria:
+  - criterion: "URLs point to external systems (SAM.gov, Salesforce)"
+    diagnostic: "mcp"
+    detail: "search_salesforce and search_solicitations must return valid external URLs"
+
+  - criterion: "Salesforce opportunities are filtered to open/active only"
+    diagnostic: "mcp"
+    detail: "search_salesforce should use is_open=true or stage filtering"
+
+  - criterion: "SAM.gov data is cross-referenced with Salesforce records"
+    diagnostic: "llm"
+    detail: "LLM must correlate solicitation numbers between systems"
+
+  - criterion: "Amendments and deadline changes are specifically called out"
+    diagnostic: "cwr"
+    detail: "System needs to surface modification dates and notice types"
+
+  - criterion: "Summary is structured for a pipeline meeting audience"
+    diagnostic: "system_prompt"
+    detail: "Response format should be actionable, not just a data dump"
+
+max_turns: 8

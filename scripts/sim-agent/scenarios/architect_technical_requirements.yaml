@@ -1,0 +1,47 @@
+name: "Architect Technical Requirements Analysis"
+persona: "solution_architect"
+description: |
+  Russell needs to analyze the technical requirements from a DHS
+  solicitation's SOW/PWS to design the technical approach. He wants
+  to understand what needs to be built, what standards apply, and
+  what technical components are required.
+
+goal: |
+  Extract and analyze technical requirements from a solicitation's
+  SOW/PWS to inform technical solution design.
+
+conversation_beats:
+  - intent: "Find a DHS IT solicitation with a SOW or PWS"
+    context: "Russell is starting technical solution design for a new capture"
+    success_signal: "Response identifies a solicitation with technical requirements"
+
+  - intent: "Pull the SOW/PWS text so I can read the technical requirements"
+    context: "He needs the actual requirement language, not summaries"
+    success_signal: "Response retrieves document content with technical requirements"
+
+  - intent: "What security framework and compliance requirements are specified?"
+    context: "He needs to know FISMA level, FedRAMP requirements, NIST controls"
+    success_signal: "Response identifies security/compliance requirements from the document"
+
+  - intent: "What technical approach did we use on similar past work?"
+    context: "He wants to leverage existing architecture patterns"
+    success_signal: "Response searches internal docs for past technical approaches"
+
+acceptance_criteria:
+  - criterion: "SOW/PWS document text is fully retrievable"
+    diagnostic: "mcp"
+    detail: "get_content must return enough text for technical analysis"
+
+  - criterion: "Technical requirements identifiable in document content"
+    diagnostic: "llm"
+    detail: "LLM should parse technical requirements from SOW/PWS language"
+
+  - criterion: "Security framework requirements correctly identified"
+    diagnostic: "llm"
+    detail: "LLM should recognize FISMA, FedRAMP, NIST references in text"
+
+  - criterion: "Past technical documents searchable by technology area"
+    diagnostic: "mcp"
+    detail: "search_assets should find relevant technical volumes and architecture docs"
+
+max_turns: 8

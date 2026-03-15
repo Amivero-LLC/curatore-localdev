@@ -1,0 +1,42 @@
+name: "BD Forecast Review"
+persona: "bd_lead"
+description: |
+  Sam reviews acquisition forecasts (APFS, GSA Acquisition Gateway)
+  to identify upcoming DHS opportunities that Amivero should start
+  positioning for before they hit SAM.gov.
+
+goal: |
+  Find forecasted DHS procurements in IT services, understand the
+  timeline, and identify which ones should be added to the pipeline.
+
+conversation_beats:
+  - intent: "Show me DHS acquisition forecasts for IT services"
+    context: "Quarterly pipeline planning — looking 6-12 months ahead"
+    success_signal: "Response includes forecast data with DHS entries"
+
+  - intent: "Which forecasts are expected to be solicited in the next 6 months?"
+    context: "He wants to prioritize near-term opportunities for capture"
+    success_signal: "Response identifies forecasts with upcoming estimated dates"
+
+  - intent: "Are any of these already in our Salesforce pipeline?"
+    context: "He needs to know what's tracked vs what's new"
+    success_signal: "Response cross-references forecasts with Salesforce opportunities"
+
+acceptance_criteria:
+  - criterion: "Forecast data retrieved via search_forecasts"
+    diagnostic: "mcp"
+    detail: "search_forecasts should return agency-specific forecast entries"
+
+  - criterion: "Agency filtering applied to DHS"
+    diagnostic: "mcp"
+    detail: "search_forecasts should use agency_name parameter"
+
+  - criterion: "Salesforce cross-reference performed"
+    diagnostic: "llm"
+    detail: "LLM should compare forecast entries to existing Salesforce opportunities"
+
+  - criterion: "Timeline information present and actionable"
+    diagnostic: "cwr"
+    detail: "Forecast records should include estimated solicitation dates"
+
+max_turns: 8

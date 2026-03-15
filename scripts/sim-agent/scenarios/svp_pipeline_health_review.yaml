@@ -1,0 +1,46 @@
+name: "SVP Pipeline Health Review"
+persona: "svp_growth"
+description: |
+  Melissa needs a quick pipeline health check before her weekly leadership
+  meeting. She wants to see total pipeline value, stage distribution,
+  and any opportunities with upcoming deadlines that need attention.
+
+goal: |
+  Get an executive-level view of pipeline health with weighted values,
+  stage distribution, and flagged items requiring decisions.
+
+conversation_beats:
+  - intent: "Show me our current pipeline — total value and stage breakdown"
+    context: "Melissa is prepping for her CEO brief in 30 minutes"
+    success_signal: "Response includes pipeline totals and breakdown by stage"
+
+  - intent: "What opportunities have proposal deadlines in the next 30 days?"
+    context: "She needs to know what's urgent and whether teams are resourced"
+    success_signal: "Response lists specific opportunities with deadlines"
+
+  - intent: "Which DHS opportunities are in capture stage?"
+    context: "DHS is Amivero's priority agency"
+    success_signal: "Response filters to DHS opportunities in capture/active stage"
+
+  - intent: "Give me a one-page summary I can brief to the CEO"
+    context: "She needs a formatted executive brief"
+    success_signal: "Structured summary with key metrics, not raw data"
+
+acceptance_criteria:
+  - criterion: "Salesforce pipeline data is retrieved with stage information"
+    diagnostic: "mcp"
+    detail: "search_salesforce or query_model should return opportunities with stages"
+
+  - criterion: "Pipeline values are aggregated correctly"
+    diagnostic: "llm"
+    detail: "LLM should sum/group opportunity values by stage"
+
+  - criterion: "Deadline filtering uses date-based queries"
+    diagnostic: "mcp"
+    detail: "query_model should use rfp_due_date_next_days=30 or similar"
+
+  - criterion: "Response format is executive-appropriate"
+    diagnostic: "system_prompt"
+    detail: "Output should be concise metrics, not verbose explanations"
+
+max_turns: 8

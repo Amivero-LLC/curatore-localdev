@@ -1,0 +1,44 @@
+name: "Proposals Past Performance Search"
+persona: "proposals_lead"
+description: |
+  Mandy needs to find relevant past performance references for a VA
+  IT modernization proposal. She needs contract details, performance
+  narratives, and contact information that match the RFP's past
+  performance requirements.
+
+goal: |
+  Find past performance references that are relevant to a VA IT
+  modernization opportunity, with enough detail to write the past
+  performance volume.
+
+conversation_beats:
+  - intent: "Find past performance documents related to VA IT modernization"
+    context: "She's building the Past Performance volume and needs references"
+    success_signal: "Response returns relevant documents from internal sources"
+
+  - intent: "Do we have any contract documents or CPARs for VA work?"
+    context: "She needs specific contract details — values, dates, scope"
+    success_signal: "Response identifies contracts with VA or similar agencies"
+
+  - intent: "What about IT modernization work at other agencies like DHS?"
+    context: "If VA-specific references are limited, similar work at other agencies counts"
+    success_signal: "Response broadens search to related past performance"
+
+acceptance_criteria:
+  - criterion: "Internal documents searched across SharePoint and file library"
+    diagnostic: "mcp"
+    detail: "search_assets should search for past performance docs across sources"
+
+  - criterion: "Results filtered to relevant content types"
+    diagnostic: "mcp"
+    detail: "search_assets should use facet_filters for contracts/past performance"
+
+  - criterion: "Folder-based search available for organized content"
+    diagnostic: "mcp"
+    detail: "resolve_library_folders or resolve_sharepoint_folders should help navigate"
+
+  - criterion: "Document content readable for narrative extraction"
+    diagnostic: "mcp"
+    detail: "get_content should allow reading full past performance documents"
+
+max_turns: 8

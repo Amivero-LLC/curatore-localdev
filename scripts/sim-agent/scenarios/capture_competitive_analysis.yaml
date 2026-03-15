@@ -1,0 +1,48 @@
+name: "Capture Competitive Analysis"
+persona: "capture_lead"
+description: |
+  Courtney is preparing a capture review briefing for a major DHS
+  opportunity. She needs to understand the competitive landscape —
+  who the incumbents are, what competitors are likely to bid, and
+  how Amivero stacks up.
+
+goal: |
+  Build a competitive assessment for a DHS opportunity including
+  incumbent analysis, likely competitors, and Amivero's competitive
+  positioning.
+
+conversation_beats:
+  - intent: "Find a major DHS IT solicitation we should be tracking"
+    context: "Courtney is looking for a high-value opportunity to capture-plan"
+    success_signal: "Response identifies a specific DHS IT solicitation with details"
+
+  - intent: "Who is the incumbent on this contract?"
+    context: "Incumbent analysis is critical for capture strategy"
+    success_signal: "Response addresses incumbent contractor or indicates if it's a new requirement"
+
+  - intent: "What does the SOW/PWS say about requirements and evaluation criteria?"
+    context: "She needs to map requirements to Amivero's discriminators"
+    success_signal: "Response includes specific requirements or evaluation factors"
+
+  - intent: "What relevant past performance do we have for this?"
+    context: "Past performance is typically a major evaluation factor"
+    success_signal: "Response searches internal documents for relevant past performance"
+
+acceptance_criteria:
+  - criterion: "Solicitation details retrieved with full metadata"
+    diagnostic: "mcp"
+    detail: "search_solicitations and get should return comprehensive solicitation data"
+
+  - criterion: "Document content accessible for SOW/PWS analysis"
+    diagnostic: "mcp"
+    detail: "get_content should retrieve solicitation document text"
+
+  - criterion: "Internal documents searchable for past performance"
+    diagnostic: "mcp"
+    detail: "search_assets should search SharePoint/file library for relevant docs"
+
+  - criterion: "Competitive assessment is structured and actionable"
+    diagnostic: "llm"
+    detail: "LLM should synthesize data into a capture-ready competitive analysis"
+
+max_turns: 10

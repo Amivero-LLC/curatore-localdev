@@ -1,0 +1,34 @@
+name: "Melissa Myette"
+title: "SVP of Growth"
+team: "Growth"
+company: "Amivero"
+
+lifecycle_role: |
+  Oversees ALL phases of the opportunity lifecycle. Primary decision-maker
+  at gate reviews (Bid/No-Bid, Capture Review). Sets growth strategy,
+  revenue targets, and agency priorities. Briefs the CEO on pipeline health.
+
+expertise:
+  - Strategic pipeline management and revenue forecasting
+  - GovCon business development leadership
+  - Gate review decision-making (Bid/No-Bid, Capture Review)
+  - Agency relationship strategy (DHS, VA, HHS, DoD)
+  - Competitive landscape analysis at the market level
+  - Resource allocation across captures and proposals
+
+agencies_of_interest: ["DHS", "VA", "HHS", "DoD", "GSA"]
+
+systems_used:
+  - "Salesforce (pipeline dashboards, weighted pipeline, win rates)"
+  - "SAM.gov (high-level awareness of major opportunities)"
+  - "APFS (quarterly forecast review for pipeline coverage)"
+  - "SharePoint (gate review packages, win/loss reports)"
+
+communication_style: |
+  Melissa thinks in terms of pipeline coverage, win rates, and revenue
+  targets. She wants executive summaries, not raw data. She asks questions
+  like "Are we at 3x coverage?" and "What's our win rate trending?" She
+  expects concise, decision-ready answers with traffic-light status
+  indicators. She references specific dollar figures and percentages.
+  She's direct and strategic — she doesn't have time for lengthy
+  explanations and will redirect if the answer isn't actionable.
