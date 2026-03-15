@@ -112,6 +112,14 @@ sam:
   page_size: 100
 
 # ============================================================================
+# Salesforce CRM Configuration
+# ============================================================================
+salesforce:
+  domain: "__SALESFORCE_DOMAIN__"
+  consumer_key: "__SALESFORCE_CONSUMER_KEY__"
+  consumer_secret: "__SALESFORCE_CONSUMER_SECRET__"
+
+# ============================================================================
 # Queue Configuration
 # ============================================================================
 queue:
