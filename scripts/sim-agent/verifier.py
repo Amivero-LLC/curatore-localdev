@@ -1,12 +1,28 @@
 """Verifier — independently checks claims in assistant responses via MCP."""
 
-import json
 import logging
 import re
 
 from mcp.client.session import ClientSession
 
 logger = logging.getLogger(__name__)
+
+# Item types to try when verifying UUIDs, in priority order
+_ID_TYPES = [
+    "asset",
+    "solicitation",
+    "notice",
+    "salesforce_opportunity",
+    "salesforce_account",
+    "salesforce_contact",
+    "scraped_asset",
+]
+
+# Words that are NOT solicitation numbers (common false positives from regex)
+_SOL_STOPWORDS = {
+    "number", "numbers", "release", "utions", "icitation", "icitations",
+    "olution", "olutions", "services", "support", "contract", "amendment",
+}
 
 
 class Verifier:
@@ -27,59 +43,84 @@ class Verifier:
         """
         results = []
 
+        # Deduplicate across turns — only verify each claim once
+        seen_uuids = set()
+        seen_sol_nums = set()
+        seen_sf_check = False
+        seen_urls = False
+
         for msg in conversation:
             if msg["role"] != "assistant":
                 continue
 
             content = msg["content"]
 
-            # Check referenced asset/item IDs
-            results.extend(await self._verify_ids(content))
+            # Check referenced asset/item IDs (deduplicated)
+            new_ids = await self._verify_ids(content, seen_uuids)
+            results.extend(new_ids)
 
-            # Check Salesforce claims
-            results.extend(await self._verify_salesforce_refs(content))
+            # Check Salesforce data accessibility (once per conversation)
+            if not seen_sf_check:
+                sf_results = await self._verify_salesforce_refs(content)
+                if sf_results:
+                    results.extend(sf_results)
+                    seen_sf_check = True
 
-            # Check SAM.gov solicitation numbers
-            results.extend(await self._verify_solicitation_numbers(content))
+            # Check SAM.gov solicitation numbers (deduplicated)
+            new_sols = await self._verify_solicitation_numbers(content, seen_sol_nums)
+            results.extend(new_sols)
 
-            # Check URLs
-            results.extend(self._verify_urls(content))
+            # Check URLs (once per conversation)
+            if not seen_urls:
+                url_results = self._verify_urls(content)
+                if url_results:
+                    results.extend(url_results)
+                    seen_urls = True
 
         return results
 
-    async def _verify_ids(self, content: str) -> list[dict]:
+    async def _verify_ids(self, content: str, seen: set) -> list[dict]:
         """Find UUIDs in content and verify they exist via get()."""
         results = []
-        # Match UUIDs (common format for asset/item IDs)
         uuids = set(re.findall(
             r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
             content, re.IGNORECASE,
         ))
 
-        for uid in list(uuids)[:5]:  # cap at 5 to avoid flooding
+        # Skip already-verified UUIDs
+        new_uuids = uuids - seen
+        seen.update(new_uuids)
+
+        for uid in list(new_uuids)[:10]:
+            uid_lower = uid.lower()
             try:
-                # Try as solicitation first, then asset
-                for item_type in ["solicitation", "asset"]:
+                found_type = None
+                for item_type in _ID_TYPES:
                     result = await self.session.call_tool(
-                        "get", {"item_type": item_type, "item_id": uid}
+                        "get", {"item_type": item_type, "item_id": uid_lower}
                     )
                     text = _extract_text(result)
-                    if "error" not in text.lower() and "not found" not in text.lower():
-                        results.append({
-                            "claim": f"Referenced {item_type} ID {uid[:12]}...",
-                            "check": f"get({item_type}, {uid})",
-                            "result": "verified",
-                            "detail": f"{item_type} exists",
-                            "diagnostic": "mcp",
-                        })
+                    if "not found" not in text.lower() and "error" not in text.lower():
+                        found_type = item_type
                         break
+
+                if found_type:
+                    # Use friendly type name
+                    friendly = found_type.replace("salesforce_", "Salesforce ").replace("_", " ")
+                    results.append({
+                        "claim": f"Referenced {friendly} ID {uid[:12]}...",
+                        "check": f"get({found_type}, {uid_lower})",
+                        "result": "verified",
+                        "detail": f"{friendly} exists",
+                        "diagnostic": "mcp",
+                    })
                 else:
                     results.append({
                         "claim": f"Referenced ID {uid[:12]}...",
-                        "check": f"get(solicitation|asset, {uid})",
+                        "check": f"get(all types, {uid_lower})",
                         "result": "not_found",
-                        "detail": "ID not found as solicitation or asset",
-                        "diagnostic": "mcp",
+                        "detail": "ID not found as any item type — possible LLM hallucination",
+                        "diagnostic": "llm",
                     })
             except Exception as e:
                 results.append({
@@ -93,20 +134,17 @@ class Verifier:
         return results
 
     async def _verify_salesforce_refs(self, content: str) -> list[dict]:
-        """Check if Salesforce opportunity names mentioned actually exist."""
+        """Check if Salesforce data is accessible when referenced."""
         results = []
 
-        # Look for patterns like "Salesforce opportunity" or "in Salesforce"
-        # followed by a name, or quoted opportunity names
         sf_indicators = [
             "salesforce", "pipeline", "CRM", "opportunity record",
-            "opportunity_url", "salesforce.com",
+            "opportunity_url", "salesforce.com", "SF Opp",
         ]
         has_sf_ref = any(ind.lower() in content.lower() for ind in sf_indicators)
         if not has_sf_ref:
             return results
 
-        # If Salesforce is referenced, verify we can actually search it
         try:
             result = await self.session.call_tool(
                 "search_salesforce",
@@ -148,23 +186,34 @@ class Verifier:
 
         return results
 
-    async def _verify_solicitation_numbers(self, content: str) -> list[dict]:
+    async def _verify_solicitation_numbers(self, content: str, seen: set) -> list[dict]:
         """Find solicitation numbers and verify they exist."""
         results = []
 
-        # Common solicitation number patterns
+        # Match realistic solicitation number patterns
         sol_patterns = [
-            r'(?:solicitation|sol\.?|notice)\s*(?:#|number|num\.?)?\s*[:=]?\s*([A-Z0-9][\w-]{5,30})',
-            r'\b([A-Z]{2,5}\d{2,4}-\d{4,})\b',  # e.g., FY26-0046, W519TC-25-R-0001
-            r'\b(7[05]\w{10,15})\b',  # SAM.gov style IDs
+            # Agency-prefixed: 70SBUR26I00000011, 75H71326Q00021
+            r'\b(\d{2}[A-Z]{2,6}\d{2}[A-Z]\d{5,})\b',
+            # Dash-separated: FY26-0046, W519TC-25-R-0001, 697DCK-25-R-00302
+            r'\b([A-Z0-9]{3,8}-\d{2,4}-[A-Z]-\d{3,})\b',
+            r'\b(FY\d{2}-\d{4,})\b',
+            # PR-prefixed: PR20156685
+            r'\b(PR\d{8,})\b',
         ]
 
         found_sols = set()
         for pattern in sol_patterns:
-            matches = re.findall(pattern, content, re.IGNORECASE)
-            found_sols.update(m.strip() for m in matches if len(m) > 5)
+            matches = re.findall(pattern, content)
+            for m in matches:
+                m = m.strip()
+                if len(m) >= 8 and m.lower() not in _SOL_STOPWORDS:
+                    found_sols.add(m)
 
-        for sol_num in list(found_sols)[:3]:  # cap at 3
+        # Skip already-verified
+        new_sols = found_sols - seen
+        seen.update(new_sols)
+
+        for sol_num in list(new_sols)[:5]:
             try:
                 result = await self.session.call_tool(
                     "search_solicitations",
@@ -177,7 +226,7 @@ class Verifier:
                         "check": f"search_solicitations(keyword={sol_num})",
                         "result": "not_found",
                         "detail": "Solicitation number not found in system",
-                        "diagnostic": "cwr",
+                        "diagnostic": "llm",
                     })
                 else:
                     results.append({
@@ -213,7 +262,7 @@ class Verifier:
 
         external_count = 0
         internal_count = 0
-        for url in urls[:10]:
+        for url in urls[:20]:
             is_external = any(domain in url.lower() for domain in valid_domains)
             if is_external:
                 external_count += 1
