@@ -1,0 +1,56 @@
+name: "BD Cross-Source Correlation"
+persona: "bd_lead"
+description: |
+  Sam needs to correlate data across multiple systems — a common workflow
+  that currently requires the LLM to manually chain searches across
+  Salesforce, SAM.gov, and APFS, extracting agency names from one result
+  set and using them to filter another. This is the exact workflow that
+  a cross-source correlation function (backend#44) would automate.
+
+  This scenario stress-tests whether the LLM can successfully:
+  1. Query active Salesforce opportunities
+  2. Extract agency names from those results
+  3. Search SAM.gov notices filtered by those same agencies
+  4. Search APFS forecasts filtered by those same agencies
+  5. Correlate and present which SAM/APFS records relate to which opportunities
+
+  Known failure modes without a correlation function:
+  - LLM forgets to extract agencies from step 1 results
+  - LLM uses wrong agency name format between systems
+  - LLM doesn't attempt the cross-reference at all
+  - Token cost is high due to multiple round trips
+  - Results aren't correlated (just two separate lists)
+
+goal: |
+  Starting from our active Salesforce opportunities, find any SAM.gov
+  notices posted in the last 14 days AND any APFS forecasts that relate
+  to the same agencies. Show which SAM.gov notices and forecasts map to
+  which Salesforce opportunities so we can see the full picture in one
+  place.
+
+acceptance_criteria:
+  - criterion: "Salesforce opportunities queried first to establish agency list"
+    diagnostic: "llm"
+    detail: "LLM must query search_salesforce before querying SAM/APFS"
+
+  - criterion: "Agency names from Salesforce used to filter SAM.gov searches"
+    diagnostic: "llm"
+    detail: "LLM must extract agencies from SF results and pass to search_notices/search_solicitations"
+
+  - criterion: "Agency names from Salesforce used to filter APFS searches"
+    diagnostic: "llm"
+    detail: "LLM must use agencies from SF results in search_forecasts"
+
+  - criterion: "Results are correlated, not presented as separate lists"
+    diagnostic: "llm"
+    detail: "Output should show which SAM/APFS records relate to which SF opportunities"
+
+  - criterion: "Agency name format matches across systems"
+    diagnostic: "cwr"
+    detail: "Agency names must be consistent — e.g. 'DHS' vs 'Department of Homeland Security'"
+
+  - criterion: "At least 2 data sources queried via MCP tools"
+    diagnostic: "mcp"
+    detail: "Both search_salesforce AND (search_notices or search_solicitations or search_forecasts) must be called"
+
+max_turns: 6
