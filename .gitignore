@@ -15,5 +15,8 @@ Thumbs.db
 # Quality check logs and reports
 logs/
 
-# Sim agent results
+# Sim agent
 scripts/sim-agent/results/
+scripts/sim-agent/.venv/
+scripts/sim-agent/__pycache__/
+scripts/sim-agent/transports/__pycache__/
