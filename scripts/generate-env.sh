@@ -92,7 +92,7 @@ echo "Reading root .env..."
 
 OPENAI_API_KEY="$(env_get OPENAI_API_KEY)"
 OPENAI_BASE_URL="$(env_get OPENAI_BASE_URL "https://litellm.prod.amivero-solutions.com")"
-OPENAI_MODEL="$(env_get OPENAI_MODEL "claude-4-5-sonnet")"
+OPENAI_MODEL="$(env_get OPENAI_MODEL "anthropic.claude-sonnet-4-6")"
 LLM_EMBEDDING_MODEL="$(env_get LLM_EMBEDDING_MODEL "text-embedding-3-large")"
 case "$LLM_EMBEDDING_MODEL" in
   text-embedding-3-large)          LLM_EMBEDDING_DIMENSIONS=3072 ;;

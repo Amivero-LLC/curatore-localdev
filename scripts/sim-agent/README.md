@@ -37,7 +37,7 @@ scenarios/*.yaml    personas/*.yaml    LiteLLM (narrator)
    ```bash
    OPENAI_API_KEY=...          # LLM provider key
    OPENAI_BASE_URL=...        # LiteLLM proxy URL
-   OPENAI_MODEL=...           # Model for the agent (e.g., claude-4-5-sonnet)
+   OPENAI_MODEL=...           # Model for the agent (e.g., anthropic.claude-sonnet-4-6)
    MCP_API_KEY=...            # MCP gateway auth key
    ```
 
