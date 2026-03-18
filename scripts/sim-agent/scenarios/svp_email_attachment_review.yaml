@@ -1,0 +1,47 @@
+name: "SVP Email Attachment Review"
+persona: "svp_growth"
+description: |
+  Melissa received a new RFQ (USCIS PLANXS II) and needs the team to
+  submit clarification questions before the 5-day deadline. She asks the
+  AI to review the solicitation for discrepancies, generate a populated
+  Quoter Question Form as an Excel file, and email it to a colleague for
+  review — with the spreadsheet attached. This exercises the full
+  document-analysis → document-generation → email-with-attachment flow
+  that leadership relies on for time-sensitive BD actions.
+
+goal: |
+  Find any DHS solicitation in the system, quickly identify 3-5
+  discrepancies or issues worth raising with the Contracting Officer, and
+  present them in a severity-rated table. Then generate an Excel
+  spreadsheet with the questions and email it as an attachment to
+  dana@amivero.com for review. Do not spend more than two turns on the
+  document analysis — move quickly to the Excel generation and email
+  steps. The generated file must be attached to the email, not just
+  described in the body text.
+
+acceptance_criteria:
+  - criterion: "Solicitation content is retrieved and analyzed"
+    diagnostic: "mcp"
+    detail: "search_solicitations or search_assets returns document content for analysis"
+
+  - criterion: "Discrepancies are identified and presented in a structured table"
+    diagnostic: "llm"
+    detail: "LLM should extract specific section references, severity ratings, and proposed questions"
+
+  - criterion: "Document generation produces a downloadable file"
+    diagnostic: "mcp"
+    detail: "generate_document should return a storage reference (object_key and bucket or download URL)"
+
+  - criterion: "Email is prepared with the generated file as an attachment"
+    diagnostic: "mcp"
+    detail: "prepare_email attachments array must include the generated file's storage reference"
+
+  - criterion: "Email confirmation reports attachment was included"
+    diagnostic: "cwr"
+    detail: "confirm_email result should include attachments_count >= 1 and the attachment filename"
+
+  - criterion: "Response format is executive-appropriate with clear next steps"
+    diagnostic: "system_prompt"
+    detail: "Melissa expects a concise summary with recommended actions, not verbose analysis"
+
+max_turns: 10
