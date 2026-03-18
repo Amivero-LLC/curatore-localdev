@@ -1,0 +1,32 @@
+name: "DOCX Table Generation and Download Link"
+persona: "svp_growth"
+description: |
+  Smoke test for two features:
+  1. Markdown tables render as proper Word tables in DOCX output
+  2. Download links use the backend proxy (/api/v1/data/assets/dl/),
+     never raw MinIO URLs (http://minio:9000/)
+
+goal: |
+  Generate a DOCX document titled "Pipeline Summary" that contains a
+  markdown table with columns: Opportunity, Agency, Value, and Status.
+  Include at least 3 rows of sample data. Save it to storage and give
+  me a download link I can open in my browser.
+
+acceptance_criteria:
+  - criterion: "Document generation succeeds as DOCX"
+    diagnostic: "mcp"
+    detail: "generate_document is called with format=docx and content containing a markdown pipe table"
+
+  - criterion: "Download URL uses backend proxy"
+    diagnostic: "cwr"
+    detail: "The download_url in the response contains '/api/v1/data/assets/dl/' and does NOT contain 'minio:9000'"
+
+  - criterion: "Download link is presented to the user"
+    diagnostic: "system_prompt"
+    detail: "The assistant message includes a clickable download link for the generated file"
+
+  - criterion: "Content includes a markdown table"
+    diagnostic: "cwr"
+    detail: "The content passed to generate_document contains pipe-delimited table syntax (| col |)"
+
+max_turns: 4
