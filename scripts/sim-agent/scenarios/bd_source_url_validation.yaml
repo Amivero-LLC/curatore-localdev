@@ -1,0 +1,57 @@
+name: "BD Source URL Validation"
+persona: "bd_lead"
+description: |
+  Sam wants to pull together a quick reference sheet of recent activity across
+  all data sources — SAM.gov notices, SAM.gov solicitations, APFS forecasts,
+  and Salesforce opportunities. For each item, he needs a direct link back to
+  the source system so he can click through and verify the details himself.
+
+  This scenario validates that source_url metadata is correctly populated
+  across all content types and that the LLM surfaces those URLs in its
+  responses. It exercises the full chain: metadata builders → ontology
+  mappings → search chunk metadata → MCP tool output → LLM presentation.
+
+  Key things this tests:
+  1. SAM.gov notices include source_url (sam.gov links)
+  2. SAM.gov solicitations include source_url (sam.gov links)
+  3. APFS forecasts include source_url (apfs-cloud.dhs.gov links)
+  4. Salesforce opportunities include source_url (salesforce.com links)
+  5. URLs point to real external systems, not localhost
+
+goal: |
+  Pull up the most recent activity from each of our data sources — a few
+  SAM.gov notices, a few solicitations, any APFS forecasts, and open
+  Salesforce opportunities. For every item, I need the direct link to the
+  source record so I can click through to SAM.gov, APFS, or Salesforce
+  and verify the details. Give me titles, agencies, and URLs.
+
+acceptance_criteria:
+  - criterion: "SAM.gov notice results include source URLs"
+    diagnostic: "cwr"
+    detail: "search_notices results should contain sam.gov URLs in the response"
+
+  - criterion: "SAM.gov solicitation results include source URLs"
+    diagnostic: "cwr"
+    detail: "search_solicitations results should contain sam.gov URLs in the response"
+
+  - criterion: "APFS forecast results include source URLs"
+    diagnostic: "cwr"
+    detail: "search_forecasts results should contain apfs-cloud.dhs.gov URLs"
+
+  - criterion: "Salesforce opportunity results include source URLs"
+    diagnostic: "cwr"
+    detail: "search_salesforce results should contain amivero.my.salesforce.com URLs"
+
+  - criterion: "At least 3 different data sources queried"
+    diagnostic: "mcp"
+    detail: "LLM must call at least 3 of: search_notices, search_solicitations, search_forecasts, search_salesforce"
+
+  - criterion: "All URLs point to external systems, not localhost"
+    diagnostic: "system_prompt"
+    detail: "No localhost or 127.0.0.1 URLs should appear in the response"
+
+  - criterion: "URLs are presented alongside titles and agencies for easy reference"
+    diagnostic: "llm"
+    detail: "Each item should have title, agency, and clickable URL — not just a list of links"
+
+max_turns: 5

@@ -256,8 +256,8 @@ class Verifier:
             return results
 
         valid_domains = [
-            "sam.gov", "salesforce.com", "force.com",
-            "usaspending.gov", "apfs.dhs.gov",
+            "sam.gov", "amivero.my.salesforce.com",
+            "usaspending.gov", "apfs-cloud.dhs.gov",
         ]
 
         external_count = 0
