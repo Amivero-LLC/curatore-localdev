@@ -1,0 +1,39 @@
+name: "SVP Document Generation with Storage"
+persona: "svp_growth"
+description: |
+  Melissa needs a quick Excel summary of pipeline opportunities saved to
+  storage for sharing with the team. This exercises the generate_document
+  → save_to_storage flow and verifies that responses omit inline base64
+  data when the file has been uploaded to object storage. Previously,
+  large base64 payloads in the JSON response caused TransferEncodingError
+  when transmitted through the MCP gateway.
+
+goal: |
+  Search for Salesforce opportunities in our pipeline, then generate an
+  Excel spreadsheet summarizing the top results with columns for
+  opportunity name, agency, amount, stage, and close date. Save it to
+  storage so I can share a download link with the team — I do not need
+  the raw file data inline.
+
+acceptance_criteria:
+  - criterion: "Salesforce opportunities are retrieved"
+    diagnostic: "mcp"
+    detail: "search_salesforce or search_opportunities returns pipeline data"
+
+  - criterion: "Document generation succeeds with storage"
+    diagnostic: "mcp"
+    detail: "generate_document returns a storage reference with bucket, object_key, and download_url"
+
+  - criterion: "Response does not contain inline base64 data"
+    diagnostic: "cwr"
+    detail: "generate_document result should omit document_base64 when save_to_storage=true"
+
+  - criterion: "Download URL is present and well-formed"
+    diagnostic: "cwr"
+    detail: "Storage reference includes a presigned download URL (https://...)"
+
+  - criterion: "Response is concise and executive-appropriate"
+    diagnostic: "system_prompt"
+    detail: "Melissa expects a download link and brief summary, not raw data dumps"
+
+max_turns: 6
