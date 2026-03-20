@@ -1,0 +1,72 @@
+name: "BD Federal Policy Cross-Reference & Provenance"
+persona: "bd_lead"
+description: |
+  Sam has been tracking recent SAM.gov announcements and wants to understand
+  whether any align with current administration executive orders or federal
+  policy directives. He knows the team has been building out a web library
+  of federal policy sources — White House presidential actions, Federal
+  Register executive orders, GAO reports, and FAR regulations.
+
+  He wants to find a relevant SAM.gov opportunity, then cross-reference it
+  against the policy library to see if there's a related executive order
+  or policy directive. Critically, he needs the source URL for the policy
+  document so he can read the original and cite it in a Bid/No-Bid package.
+
+  This scenario battle-tests the full metadata provenance chain:
+  1. SAM.gov search returns real opportunities with agencies/NAICS
+  2. Web library search finds related federal policies (executive orders, FAR)
+  3. Policy results include source website metadata (website.name, website.domain)
+  4. The assistant can tell Sam exactly where a policy document came from
+     (which website, what URL) — not just the document title
+  5. Source URLs point to real federal websites, not localhost
+
+  Key metadata fields exercised:
+  - sync.config_name (web library name)
+  - website.name / website.domain (source website identity)
+  - website.url (original page URL)
+  - source_url on SAM.gov results
+
+goal: |
+  I'm looking at recent SAM.gov announcements in the IT services space —
+  anything from DHS, VA, or HHS that's been posted recently. Pick one that
+  looks interesting and tell me about it.
+
+  Then I want to cross-reference that against our federal policy library.
+  Are there any executive orders or policy directives that relate to that
+  opportunity's mission area? I need the actual source URL for any policy
+  you find — I want to read the original executive order or directive on
+  the White House or Federal Register website and cite it in our
+  Bid/No-Bid package.
+
+  Tell me which website each policy came from and give me the direct link.
+
+acceptance_criteria:
+  - criterion: "SAM.gov opportunity search returns results with agency and NAICS"
+    diagnostic: "mcp"
+    detail: "search_notices or search_solicitations must be called and return results with agency info"
+
+  - criterion: "Web library or scraped content is searched for related policies"
+    diagnostic: "mcp"
+    detail: "search_scraped_assets or search_assets must be called to find policy documents"
+
+  - criterion: "Policy results include source website identity"
+    diagnostic: "cwr"
+    detail: "Response should mention which website the policy came from (e.g., whitehouse.gov, federalregister.gov)"
+
+  - criterion: "Source URLs for policy documents are provided"
+    diagnostic: "cwr"
+    detail: "Each policy result should include a URL pointing to the original source (whitehouse.gov, federalregister.gov, gao.gov, or acquisition.gov)"
+
+  - criterion: "Cross-reference connects SAM opportunity to relevant policy"
+    diagnostic: "llm"
+    detail: "The LLM should explain how the policy relates to the opportunity's mission area"
+
+  - criterion: "All URLs point to real federal websites, not localhost"
+    diagnostic: "system_prompt"
+    detail: "No localhost or 127.0.0.1 URLs should appear — only real .gov domains"
+
+  - criterion: "Response is actionable for a Bid/No-Bid package"
+    diagnostic: "llm"
+    detail: "Enough detail to cite: policy title, issuing authority, date if available, and direct link"
+
+max_turns: 6
