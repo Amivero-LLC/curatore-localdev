@@ -133,6 +133,7 @@ ADMIN_USERNAME="$(env_get ADMIN_USERNAME "admin")"
 ADMIN_FULL_NAME="$(env_get ADMIN_FULL_NAME "Admin User")"
 DEFAULT_ORG_NAME="$(env_get DEFAULT_ORG_NAME "Default Organization")"
 DEFAULT_ORG_SLUG="$(env_get DEFAULT_ORG_SLUG "default")"
+ENVIRONMENT="$(env_get ENVIRONMENT "localdev")"
 DEBUG="$(env_get DEBUG "true")"
 ENABLE_POSTGRES_SERVICE="$(env_get ENABLE_POSTGRES_SERVICE "true")"
 CORS_ORIGINS="$(env_get CORS_ORIGINS '["http://localhost:3000"]')"
@@ -169,6 +170,7 @@ cat > "${ROOT}/curatore-backend/.env" << BACKEND_ENV
 # Edit the root .env and re-run: ./scripts/generate-env.sh
 
 # Debug / Development
+ENVIRONMENT=${ENVIRONMENT}
 DEBUG=${DEBUG}
 CORS_ORIGINS=${CORS_ORIGINS}
 ENABLE_AUTH=${ENABLE_AUTH}
