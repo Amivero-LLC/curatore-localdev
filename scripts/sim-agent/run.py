@@ -56,6 +56,28 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _load_system_prompt() -> str:
+    """Load the system prompt from the Open WebUI model preset JSON.
+
+    Reads from the MCP service's preset file to stay in sync with the
+    real system prompt used by Open WebUI / AmiChat.
+    """
+    import json
+    from pathlib import Path
+
+    preset_path = Path(__file__).resolve().parents[2] / (
+        "curatore-mcp-service/docs/openwebui_preset_curatore_model.json"
+    )
+    if preset_path.exists():
+        try:
+            presets = json.loads(preset_path.read_text())
+            if presets and isinstance(presets, list):
+                return presets[0].get("params", {}).get("system", "")
+        except (json.JSONDecodeError, KeyError, IndexError):
+            pass
+    return ""
+
+
 async def main() -> None:
     args = parse_args()
 
@@ -82,6 +104,9 @@ async def main() -> None:
         )
         sys.exit(1)
 
+    # Load MCP server instructions as the system prompt
+    system_prompt = _load_system_prompt()
+
     # Create MCP agent transport (LLM + MCP tool loop)
     transport = MCPAgentTransport(
         llm_base_url=config.LLM_BASE_URL,
@@ -90,6 +115,7 @@ async def main() -> None:
         mcp_url=config.MCP_URL,
         mcp_api_key=config.MCP_API_KEY,
         mcp_user_email=config.MCP_USER_EMAIL,
+        system_prompt=system_prompt,
     )
     transport_label = f"MCP Agent ({config.LLM_MODEL} + {config.MCP_URL})"
     console.print(f"[bold]Transport:[/bold] {transport_label}")

@@ -87,6 +87,7 @@ class MCPAgentTransport(BaseTransport):
         }
         if self._tools_openai:
             payload["tools"] = self._tools_openai
+            payload["tool_choice"] = "auto"
 
         response = await self.http_client.post(
             f"{self.llm_base_url}/chat/completions",
