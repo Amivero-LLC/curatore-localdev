@@ -21,7 +21,7 @@ llm:
   provider: openai
   api_key: __OPENAI_API_KEY__
   base_url: __OPENAI_BASE_URL__
-  timeout: 60
+  timeout: 180
   max_retries: 3
   verify_ssl: true
 
