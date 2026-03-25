@@ -20,3 +20,6 @@ scripts/sim-agent/results/
 scripts/sim-agent/.venv/
 scripts/sim-agent/__pycache__/
 scripts/sim-agent/transports/__pycache__/
+scripts/ebuy/api_responses/
+scripts/ebuy/.ebuy_token.json
+scripts/ebuy/.ebuy_auth_state.json
