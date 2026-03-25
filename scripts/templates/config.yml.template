@@ -120,6 +120,24 @@ salesforce:
   consumer_secret: "__SALESFORCE_CONSUMER_SECRET__"
 
 # ============================================================================
+# Web Search Configuration
+# ============================================================================
+web_search:
+  engine: "__WEB_SEARCH_ENGINE__"
+  google_pse:
+    api_key: "__GOOGLE_PSE_API_KEY__"
+    engine_id: "__GOOGLE_PSE_ENGINE_ID__"
+
+# ============================================================================
+# GSA eBuy Integration Configuration
+# ============================================================================
+ebuy:
+  username: "__EBUY_USERNAME__"
+  password: "__EBUY_PASSWORD__"
+  okta_auth_server_id: "__EBUY_OKTA_AUTH_SERVER_ID__"
+  okta_client_id: "__EBUY_OKTA_CLIENT_ID__"
+
+# ============================================================================
 # Queue Configuration
 # ============================================================================
 queue:
