@@ -16,6 +16,14 @@ These are the most commonly missed steps that cause integrations to fail:
 | **4. Use run_log_service for logging** | Import `run_log_service`, NOT `run_service` | `AttributeError: 'RunService' object has no attribute 'log_event'` |
 | **5. Recreate worker after adding queue** | `docker-compose stop worker && docker-compose rm -f worker && docker-compose up -d worker` | Worker doesn't consume new queue |
 | **6. Add job type config** | `curatore-frontend/lib/job-type-config.ts` | Jobs show as "Unknown" type |
+| **7. Validate API field names against live org** | Use `describe()` or equivalent | SOQL/API queries fail with 400 errors |
+| **8. Update metadata builders + field YAML** | `metadata_builders.py` + `registry/fields/*.yaml` | New fields invisible to search/CWR/MCP |
+| **9. Update source_ontology_mappings.yaml** | `registry/source_ontology_mappings.yaml` | Ontology fields (agency, lifecycle_phase) not populated |
+| **10. Wire reindex after sync** | Celery task queues reindex task | Synced data not searchable until manual reindex |
+| **11. Add source context for classification** | `get_asset_source.py` + `classify_document.py` | Downloaded files classified without provenance context |
+| **12. Use storage_path_service for MinIO keys** | `storage_path_service.py` | Files stored with opaque IDs instead of browsable paths |
+| **13. Update maintenance handler reindex** | `maintenance_handlers.py` | Full rebuilds produce less rich metadata than sync |
+| **14. Add SyncType to frontend** | `lib/api.ts` SyncType + SyncConfigCollection | Import/export buttons fail with TypeScript errors |
 
 **After making changes, always verify with:**
 ```bash
@@ -1484,6 +1492,90 @@ asyncio.run(check())
 9. **Missing await** on async database operations.
 
 10. **Wrong parameter names in run_service.create_run()** - Use `created_by` (not `started_by`) and `config` (not `metadata`).
+
+11. **Validate external API field names against the live org before shipping.** SOQL field names, GraphQL fields, and API response keys may differ from documentation or CSV export column names. Use the `describe()` API (Salesforce), `$metadata` endpoint (Graph), or equivalent to validate all field names before building queries. Wrong field names cause silent 400 errors that are hard to debug.
+    ```python
+    # Validate SOQL fields against live org
+    desc = await client.describe("Opportunity")
+    valid_fields = {f["name"] for f in desc["fields"]}
+    invalid = [f for f in MY_SOQL_FIELDS if f not in valid_fields]
+    assert not invalid, f"Invalid fields: {invalid}"
+    ```
+
+12. **Use 3-tier credential resolution.** Follow the SAM.gov pattern: DB Connection → `config.yml` → environment variable. Never hardcode credentials or skip the config.yml fallback. Many development environments have credentials in `config.yml` but no DB Connection record.
+    ```python
+    # Priority: DB connection → config.yml → error
+    conn = await connection_service.get_default_connection(session, org_id, "my_connector")
+    if conn:
+        return conn.config
+    my_config = config_loader.get_my_config()
+    if my_config and my_config.api_key:
+        return {"api_key": my_config.api_key}
+    raise ValueError("No credentials configured")
+    ```
+
+13. **`lock_service.acquire_lock()` returns a lock_id string, not a boolean.** The signature is `acquire_lock(resource_name, timeout) → Optional[str]`. You must store the lock_id and pass it to `release_lock(resource_name, lock_id)`. There is no `session` parameter.
+    ```python
+    # CORRECT
+    lock_id = await lock_service.acquire_lock("sync:my_connector:123", timeout=3600)
+    if not lock_id:
+        return  # Lock not acquired
+    try:
+        ...
+    finally:
+        await lock_service.release_lock("sync:my_connector:123", lock_id)
+    ```
+
+14. **Run model uses `error_message`, not `error`.** When reading Run records via raw SQL (e.g., `fetchall()`), the column is `error_message`. Using `r.error` will raise `AttributeError`.
+
+15. **Cast Salesforce numeric/integer fields to the correct Python type.** Salesforce returns `FiscalYear` as `int` (e.g., `2026`) but the DB column may be `String`. Similarly, `POP_Months__c` comes as `float` (e.g., `60.0`) but the DB column is `Integer`. Always cast in the field mapper.
+    ```python
+    "fiscal_year": str(record["FiscalYear"]) if record.get("FiscalYear") is not None else None,
+    "pop_months": int(record["POP_Months__c"]) if record.get("POP_Months__c") is not None else None,
+    ```
+
+16. **Don't use `from_attributes = True` on Pydantic response models that are manually constructed.** If your endpoint builds a response model manually via a helper function (not ORM serialization), adding `Config.from_attributes = True` causes Pydantic v2 to double-validate and fail with "Input should be a valid dictionary or object to extract fields from."
+
+17. **Upsert methods must accept all model columns as parameters.** If you add new columns to a model (e.g., 17 custom fields), the upsert method must also accept those fields. Otherwise the sync mapper produces kwargs that the upsert doesn't accept, causing `got an unexpected keyword argument` errors on every record.
+
+18. **Metadata builders must include all indexed fields.** Fields that exist in the DB model but are missing from the builder's `build_content()` and `build_metadata()` are invisible to search, CWR, and MCP. If you add fields to the model, also add them to:
+    - Field definition YAML (`app/metadata/registry/fields/*.yaml`)
+    - Source ontology mappings (`source_ontology_mappings.yaml`)
+    - Builder's `get_schema()`, `build_content()`, and `build_metadata()`
+    - The reindex task's field extraction
+    - The maintenance handler's reindex call
+
+19. **The maintenance handler's search rebuild must use the same fields as the sync reindex task.** If the sync reindex includes GovCon custom fields and junction data but the maintenance rebuild only passes basic fields, full rebuilds will produce less rich metadata. Use a shared helper function for field extraction.
+
+20. **Wire re-indexing into your sync service.** Syncing records without re-indexing leaves new data invisible to search. Queue the reindex task after sync completes:
+    ```python
+    # At end of sync task, after commit
+    from app.core.tasks import reindex_my_connector_task
+    reindex_my_connector_task.delay(organization_id=str(org_id))
+    ```
+
+21. **Add source context hints for document classification.** When your connector downloads files (attachments, documents), the classification LLM needs context about where the file came from. Add your source_type to:
+    - `app/cwr/tools/primitives/search/get_asset_source.py` — resolve source metadata into structured provenance data
+    - `app/cwr/tools/compounds/classify_document.py` `_format_source_context()` — format provenance for the LLM prompt
+    - Enrich `source_metadata` on the Asset with human-readable names (not just IDs) at creation time
+
+22. **Use `storage_path_service` for MinIO object keys, not inline f-strings.** All connectors should define a path function in `app/core/storage/storage_path_service.py` that produces human-readable, browsable paths. The pattern is `{org_id}/{connector}/{config_slug}/{hierarchy}/{filename}`.
+    ```python
+    # WRONG
+    storage_key = f"{org_id}/salesforce/{opp_sf_id}/{doc_id}-{filename}"
+
+    # CORRECT
+    from app.core.storage.storage_path_service import storage_paths
+    storage_key = storage_paths.salesforce_document(
+        org_id=str(org_id), sync_slug="prod-sync",
+        account_name="ICE", opportunity_name="ICE POPE", filename="rfp.pdf",
+    )
+    # → "org1/salesforce/prod-sync/ice/ice-pope/rfp.pdf"
+    ```
+
+23. **Add `# nosec B608` comments to SOQL/external query strings.** Bandit flags f-string query construction as SQL injection (B608). SOQL and other external query languages are not SQL — add `# nosec B608` with a justification comment on the f-string line (not the assignment line).
+
+24. **Frontend: Add your sync type to `SyncType`, `SyncConfigCollection`, `SyncConfigImportResult`, and `SYNC_TYPE_LABELS`.** The shared import/export components (`SyncImportButton`, `SyncExportButton`) use `SyncType` to key into these interfaces. Missing entries cause TypeScript errors.
 
 ---
 
