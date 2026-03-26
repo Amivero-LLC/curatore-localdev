@@ -87,27 +87,21 @@ def fetch_latest_okta_email(
         "Content-Type": "application/json",
     }
 
-    # Build OData filter for Okta emails
-    # Okta sends from "noreply@okta.com" with subject containing "verification code"
-    filter_parts = [
-        "(from/emailAddress/address eq 'noreply@okta.com'"
-        " or from/emailAddress/address eq 'noreply@login.gov'"
-        " or contains(subject, 'verification code')"
-        " or contains(subject, 'Verification Code')"
-        ")",
-    ]
-
+    # Graph API's $filter with contains() doesn't support $orderby.
+    # Strategy: filter by receivedDateTime only, fetch recent messages,
+    # then filter client-side by subject keyword.
     if after_timestamp:
-        filter_parts.append(f"receivedDateTime ge {after_timestamp}")
+        odata_filter = f"receivedDateTime ge {after_timestamp}"
+    else:
+        odata_filter = ""
 
-    odata_filter = " and ".join(filter_parts)
-
+    filter_param = f"&$filter={odata_filter}" if odata_filter else ""
     url = (
         f"{GRAPH_BASE_URL}/users/{mailbox}/messages"
-        f"?$filter={odata_filter}"
-        f"&$orderby=receivedDateTime desc"
-        f"&$top=1"
+        f"?$orderby=receivedDateTime desc"
+        f"&$top=10"
         f"&$select=subject,body,receivedDateTime,from"
+        f"{filter_param}"
     )
 
     for attempt in range(1, max_retries + 1):
@@ -131,11 +125,15 @@ def fetch_latest_okta_email(
         messages = data.get("value", [])
 
         if messages:
-            msg = messages[0]
-            print(f"  Found email: {msg.get('subject', 'no subject')}")
-            print(f"  From: {msg.get('from', {}).get('emailAddress', {}).get('address')}")
-            print(f"  Received: {msg.get('receivedDateTime')}")
-            return msg
+            # Client-side filter: look for verification code emails
+            for msg in messages:
+                subject = (msg.get("subject") or "").lower()
+                if "verification code" in subject:
+                    print(f"  Found email: {msg.get('subject', 'no subject')}")
+                    print(f"  From: {msg.get('from', {}).get('emailAddress', {}).get('address')}")
+                    print(f"  Received: {msg.get('receivedDateTime')}")
+                    return msg
+            print(f"  {len(messages)} emails found but none match 'verification code' subject")
 
         if attempt < max_retries:
             time.sleep(poll_interval)
@@ -160,30 +158,37 @@ def extract_otp_from_email(message: dict) -> str | None:
     else:
         text = content
 
-    # Pattern 1: "Your verification code is 123456"
+    # GSA Okta format: "Please enter the following code for verification: 201889"
+    # Pattern 1: "code for verification: 123456"
+    match = re.search(r"code\s+for\s+verification\s*[:\s]+(\d{6})", text, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Pattern 2: "Your verification code is 123456"
     match = re.search(r"(?:verification|security)\s*code\s*(?:is)?\s*[:\s]*(\d{6})", text, re.IGNORECASE)
     if match:
         return match.group(1)
 
-    # Pattern 2: "Enter code: 123456" or "Code: 123456"
+    # Pattern 3: "Enter code: 123456" or "Code: 123456"
     match = re.search(r"(?:enter\s*)?code\s*[:\s]+(\d{6})", text, re.IGNORECASE)
     if match:
         return match.group(1)
 
-    # Pattern 3: Standalone 6-digit number (common in OTP emails)
-    # Look for a prominent 6-digit number
+    # Pattern 4: 6-digit number near "code" or "verification" (within 50 chars)
+    for m in re.finditer(r"\b(\d{6})\b", text):
+        start = max(0, m.start() - 50)
+        end = min(len(text), m.end() + 50)
+        context = text[start:end].lower()
+        if any(kw in context for kw in ["code", "verify", "verification", "one-time"]):
+            return m.group(1)
+
+    # Pattern 5: Standalone 6-digit number (only if exactly one in the email)
     matches = re.findall(r"\b(\d{6})\b", text)
     if len(matches) == 1:
         return matches[0]
 
-    # Pattern 4: If multiple 6-digit numbers, try to find one near "code" or "verify"
+    # Pattern 6: Multiple 6-digit numbers — pick the first one
     if matches:
-        for m in re.finditer(r"\b(\d{6})\b", text):
-            start = max(0, m.start() - 100)
-            context = text[start : m.end()].lower()
-            if any(kw in context for kw in ["code", "verify", "verification", "one-time"]):
-                return m.group(1)
-        # Fallback: return the first one
         return matches[0]
 
     print(f"  WARNING: Could not extract OTP from email body")
