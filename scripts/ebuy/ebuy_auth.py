@@ -49,6 +49,11 @@ EBUY_PASSWORD = os.getenv("EBUY_PASSWORD")
 OKTA_AUTH_SERVER_ID = os.getenv("EBUY_OKTA_AUTH_SERVER_ID")
 OKTA_CLIENT_ID = os.getenv("EBUY_OKTA_CLIENT_ID")
 
+# OTP mailbox — may differ from login account.
+# Default: ebuy@amivero.com (shared mailbox where OTPs are forwarded)
+# When service account is set up, EBUY_USERNAME and EBUY_OTP_MAILBOX will match.
+EBUY_OTP_MAILBOX = os.getenv("EBUY_OTP_MAILBOX", "ebuy@amivero.com")
+
 STATE_FILE = Path(__file__).parent / ".ebuy_auth_state.json"
 
 
@@ -415,6 +420,10 @@ def main():
         from ebuy_graph_otp import get_okta_otp
 
         print("\n[Mode] Fully automated (Graph OTP reader)")
+        print(f"  Okta login: {EBUY_USERNAME}")
+        print(f"  OTP mailbox: {EBUY_OTP_MAILBOX}")
+        if EBUY_USERNAME != EBUY_OTP_MAILBOX:
+            print(f"  NOTE: OTPs must be forwarded from {EBUY_USERNAME} → {EBUY_OTP_MAILBOX}")
 
         authn_data = step1_authenticate(session)
         if authn_data.get("status") == "SUCCESS":
@@ -424,16 +433,17 @@ def main():
             mfa_trigger_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             mfa_data = step2_trigger_email_mfa(session, authn_data)
 
-            # Read OTP from email via Graph API
+            # Read OTP from the OTP mailbox (may differ from Okta login account)
             passcode = get_okta_otp(
-                email=EBUY_USERNAME,
+                email=EBUY_OTP_MAILBOX,
                 after_timestamp=mfa_trigger_time,
                 max_retries=15,
                 poll_interval=3.0,
             )
             if not passcode:
                 print("ERROR: Could not read OTP from email via Graph API.")
-                print("  Ensure Mail.Read permission is granted for this mailbox.")
+                print(f"  Mailbox: {EBUY_OTP_MAILBOX}")
+                print(f"  Ensure Mail.Read permission is granted and OTPs are being forwarded.")
                 sys.exit(1)
 
             verify_data = step3_verify_email_code(session, mfa_data, passcode)
