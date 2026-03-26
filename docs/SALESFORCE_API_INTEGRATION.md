@@ -1,8 +1,83 @@
-# Salesforce API Integration — Planning & Architecture
+# Salesforce API Integration
 
-> **Status:** Planning (March 2026)
-> **Scope:** Replace zip-import with API-based bidirectional sync
+> **Status:** Implemented — Phase 1 (one-way sync) complete (March 2026)
+> **Scope:** Live API sync replacing zip-import; bidirectional write-back planned for Phase 2
 > **Repos:** curatore-backend, curatore-frontend, curatore-localdev
+> **PRs:** [backend#177](https://github.com/Amivero-LLC/curatore-backend/pull/177), [frontend#59](https://github.com/Amivero-LLC/curatore-frontend/pull/59)
+
+## Quick Start — Connection Setup
+
+### Prerequisites
+
+- Salesforce Connected App with OAuth2 client_credentials grant enabled
+- Consumer Key + Consumer Secret from the Connected App
+- API-enabled user profile in Salesforce
+
+### Configuration (config.yml)
+
+The simplest setup — add credentials to `config.yml` in the backend:
+
+```yaml
+# backend/config.yml
+salesforce:
+  domain: "mycompany.my.salesforce.com"
+  consumer_key: "3MVG99..."
+  consumer_secret: "8C9654D..."
+```
+
+Then restart the backend. The sync service uses **3-tier credential resolution**:
+
+| Priority | Source | How |
+|----------|--------|-----|
+| 1 | DB Connection | System → Connections → Add Salesforce CRM |
+| 2 | config.yml | `salesforce.domain` + `consumer_key` + `consumer_secret` |
+| 3 | Error | Clear error message with setup instructions |
+
+### Configuration (DB Connection — UI)
+
+For multi-org or production use, create a Connection via the UI:
+
+1. Navigate to **System → Connections → New Connection**
+2. Select **Salesforce CRM** as connection type
+3. Fill in:
+   - **Instance URL**: `https://mycompany.my.salesforce.com`
+   - **Client ID**: Connected App Consumer Key
+   - **Client Secret**: Connected App Consumer Secret
+   - **API Version**: `v66.0` (default)
+4. Click **Test Connection** to verify OAuth2 token acquisition
+5. Save and mark as default for the organization
+
+### Verify Connection
+
+```bash
+# Health check (from backend container)
+docker exec curatore-backend python -c "
+import asyncio
+from app.api.v1.admin.routers.system import _check_salesforce
+print(asyncio.run(_check_salesforce(detailed=True)))
+"
+
+# Or via API
+curl http://localhost:8000/api/v1/admin/system/health/comprehensive \
+  -H "Authorization: Bearer <token>" | jq '.components.salesforce'
+```
+
+### Create a Sync Config
+
+1. Navigate to **Syncs → Salesforce CRM → New Sync Config**
+2. Name the config (e.g., "Production Salesforce Sync")
+3. Select objects to sync (Account, Contact, Opportunity, etc.)
+4. Set frequency (manual, hourly, daily, weekly)
+5. Click **Create**, then **Sync Now** on the config card
+
+### API Limits
+
+- **OAuth2 grant**: `client_credentials` (server-to-server, no user interaction)
+- **API version**: v66.0
+- **Rate limiting**: 0.1s delay between requests + exponential backoff on 429
+- **Daily limit**: ~125,000 API calls/day (varies by Salesforce edition)
+- **SOQL pagination**: Auto-follows `nextRecordsUrl` for large result sets
+- **Document downloads**: 5 concurrent, 100MB max per file, 3 retries with backoff
 
 ## Table of Contents
 
@@ -280,6 +355,111 @@ salesforce_sync_configs (NEW)
     stats: JSONB
     automation_config: JSONB     -- post-sync procedure triggers
 ```
+
+### Hybrid Storage: Junction & Child Data as JSONB Metadata
+
+**Decision (March 2026):** Opportunity-related junction/child data (contact roles, competitors, teaming partners, solutions, activities) is stored as **denormalized JSONB arrays** in the Opportunity's `source_metadata`, NOT as separate tables. This data is also embedded into the Opportunity's searchable content for CWR/MCP consumption.
+
+**Rationale:**
+- Primary consumers are CWR and MCP — they need rich, self-contained context per Opportunity
+- Data volumes don't justify separate tables (166 contact roles, small competitor/teaming counts)
+- Eliminates junction table sync complexity (no child table delta logic)
+- JSONB containment queries handle structured filtering (`@>` operator)
+- Semantic search finds relationship data naturally when embedded in content
+
+**What goes in `source_metadata.salesforce_opportunity`:**
+
+```json
+{
+  "contact_roles": [
+    {
+      "contact_salesforce_id": "003xxx",
+      "name": "David Blair",
+      "email": "david.blair@uscis.dhs.gov",
+      "title": "Program Manager",
+      "role": "Influencer",
+      "is_primary": false
+    }
+  ],
+  "competitors": [
+    {
+      "account_salesforce_id": "001xxx",
+      "name": "Deloitte"
+    }
+  ],
+  "teaming_partners": [
+    {
+      "account_salesforce_id": "001xxx",
+      "name": "Agile Defense",
+      "role": "Sub"
+    }
+  ],
+  "solutions": [
+    {
+      "name": "Cloud Migration",
+      "percent": 40.0
+    }
+  ],
+  "recent_activities": [
+    {
+      "type": "Task",
+      "subject": "Hold Gate Review",
+      "status": "Open",
+      "date": "2027-05-15",
+      "owner": "Sam Poticha"
+    },
+    {
+      "type": "Event",
+      "subject": "Amivero/Agile - eAuto",
+      "date": "2025-10-21",
+      "owner": "Sam Poticha"
+    }
+  ]
+}
+```
+
+**How it's indexed (search chunk content):**
+
+```
+USCIS Outcome Based Delivery and DevOps
+Stage: Capture | Amount: $5M | Amivero Value: $2M | Pwin: 40%
+Account: DHS/USCIS | Prime: Amivero | Set-Aside: 8(a)
+Key Contacts: David Blair (Influencer), Chris Tighe (Decision Maker)
+Competitors: Deloitte, Booz Allen
+Teaming: Agile Defense (Sub)
+Solutions: Cloud Migration (40%), DevSecOps (60%)
+Recent Activity: Hold Gate Review (Open, 2027-05-15)
+```
+
+**Structured JSONB filtering examples:**
+
+```sql
+-- All opps where someone is a Decision Maker
+WHERE source_metadata->'salesforce_opportunity'->'contact_roles' @> '[{"role": "Decision Maker"}]'
+
+-- All opps where Agile Defense is a teaming partner
+WHERE source_metadata->'salesforce_opportunity'->'teaming_partners' @> '[{"name": "Agile Defense"}]'
+
+-- All opps with open tasks
+WHERE source_metadata->'salesforce_opportunity'->'recent_activities' @> '[{"type": "Task", "status": "Open"}]'
+```
+
+**Rules for working with hybrid data:**
+
+| Rule | Why |
+|------|-----|
+| **Sync populates JSONB arrays during Opportunity sync** | Contact roles, competitors, etc. are fetched as sub-queries per Opportunity batch and merged into `source_metadata` |
+| **Metadata builders embed JSONB arrays into searchable content** | CWR/MCP finds this data via semantic search |
+| **Entity field catalog declares JSONB array fields** | So facets and structured filters work (e.g., filter by contact role type) |
+| **Any code that updates Opportunity metadata must preserve child arrays** | Don't overwrite `contact_roles` when updating `stage_name` — merge, don't replace |
+| **Delta sync must refresh child data alongside parent** | If an Opportunity's `SystemModstamp` changed, re-fetch its contact roles, competitors, etc. |
+| **If a child object independently changes (new contact role added), the parent Opportunity may NOT have a new SystemModstamp** | Periodic full syncs catch these; or query child objects' SystemModstamp separately |
+| **Future promotion to separate tables is non-breaking** | JSONB remains source of truth; a table would be a materialized index |
+
+**When to promote to a separate table (future):**
+- If we need to search child data independently at scale (e.g., "all gate reviews across pipeline this month")
+- If data volume exceeds practical JSONB size (>100 child records per parent)
+- If write-back (Phase 2) requires granular update tracking per child record
 
 ### Migration Strategy
 
