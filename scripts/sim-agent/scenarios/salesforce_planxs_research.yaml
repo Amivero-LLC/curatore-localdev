@@ -1,0 +1,84 @@
+name: "Salesforce PLANXS II Opportunity Research"
+persona: "bd_lead"
+description: |
+  Sam needs to do a deep-dive on the PLANXS II opportunity at USCIS before
+  a capture review call this afternoon. He wants to pull everything out of
+  Salesforce: the current stage, financial details, who owns it internally,
+  which government contacts are attached, any recent notes or activity, related
+  documents, the USCIS account profile, and whether any competitors are tracked
+  on the deal. He should not have to leave Curatore to get the full picture.
+
+goal: |
+  Research the USCIS PLANXS II opportunity in Salesforce and produce a
+  capture-ready briefing covering:
+  1. Opportunity overview — stage, amount/TCV, pwin, GovCon dates (RFP release,
+     RFP due date, PoP start/end), set-aside type, contract pricing type,
+     prime/sub role, and the Salesforce record URL
+  2. Opportunity owner — who at Amivero owns this record
+  3. Contact roles — all contacts attached to the opportunity, their titles,
+     email addresses, and their role on the deal (e.g., Decision Maker, Technical
+     Point of Contact, Contracting Officer)
+  4. Activity/notes — any logged tasks or recent notes on the opportunity
+  5. Related documents — any documents in the file library or SharePoint tied
+     to PLANXS or USCIS capture work
+  6. USCIS account details — account type, industry, phone, website, address
+  7. Competitors — any competitors tracked on the deal with strengths/weaknesses
+
+acceptance_criteria:
+  - criterion: "search_salesforce called with 'PLANXS' query to locate the opportunity"
+    diagnostic: "mcp"
+    detail: "search_salesforce must be called with entity_types=['opportunity'] and query containing 'PLANXS'"
+
+  - criterion: "get called with item_type='salesforce_opportunity' to retrieve full record"
+    diagnostic: "mcp"
+    detail: "After locating the opportunity ID, get must be called to retrieve full field details"
+
+  - criterion: "GovCon fields present in opportunity response — tcv, pwin, rfp_due_date, pop_start_date, pop_end_date, set_aside_type"
+    diagnostic: "cwr"
+    detail: "The get response for salesforce_opportunity must include GovCon-specific fields defined on the model (tcv, pwin, rfp_release_date, rfp_due_date, rfi_release_date, rfi_due_date, pop_start_date, pop_end_date, set_aside_type, contract_pricing_type, prime_or_sub, priority_level)"
+
+  - criterion: "Opportunity owner surfaced — the assigned Salesforce user who owns the record"
+    diagnostic: "cwr"
+    detail: "owner_user_id must resolve to a name; if not in get response, a follow-up call to search_salesforce(entity_types=['contact'], query='owner name') or query_model should be attempted"
+
+  - criterion: "Contact roles retrieved — at least one contact with email and role"
+    diagnostic: "cwr"
+    detail: "Contact role data is denormalized into opportunity source_metadata; if not returned by get, the LLM should attempt search_salesforce(entity_types=['contact'], account_id='...') or note the gap and flag it as missing data"
+
+  - criterion: "Activities or tasks checked — at least one tool call targeting tasks/notes"
+    diagnostic: "mcp"
+    detail: "LLM should attempt query_model or search to find tasks linked to the opportunity; since SalesforceTask is not in ALLOWED_MODELS, this should surface as a gap and be reported"
+
+  - criterion: "Related documents searched via search_assets"
+    diagnostic: "mcp"
+    detail: "search_assets must be called with a query referencing 'PLANXS' or 'USCIS' to find capture documents in file library or SharePoint"
+
+  - criterion: "USCIS account details retrieved via get or search_salesforce"
+    diagnostic: "mcp"
+    detail: "get(item_type='salesforce_account', ...) or search_salesforce(entity_types=['account'], query='USCIS') must be called to retrieve account profile including industry, phone, website"
+
+  - criterion: "Account children (contacts, opportunities) returned when include_children=True"
+    diagnostic: "cwr"
+    detail: "get(item_type='salesforce_account', include_children=True) should return contacts and opportunities as children — confirm children are present in the response"
+
+  - criterion: "Competitor data surfaced — competitor names from source_metadata.competitors array"
+    diagnostic: "cwr"
+    detail: "Competitors are denormalized into opportunity source_metadata.competitors[] with competitor_name and incumbent flag; the LLM should surface these from the get response or search_salesforce results"
+
+  - criterion: "Contact roles sourced from source_metadata — not just account-level contact search"
+    diagnostic: "cwr"
+    detail: "Contact role data (name, role, is_primary) is denormalized into opportunity source_metadata.contact_roles[]; the LLM should use this data when available rather than only searching account contacts"
+
+  - criterion: "Salesforce record URLs included in the briefing"
+    diagnostic: "system_prompt"
+    detail: "source_url fields from opportunity and account records must be surfaced in the final briefing so Sam can navigate directly"
+
+  - criterion: "Response is structured as a capture briefing, not a raw data dump"
+    diagnostic: "system_prompt"
+    detail: "Output should be organized by section (Overview, Owner, Contacts, Activity, Documents, Account, Competitors) with actionable detail"
+
+  - criterion: "Data gaps explicitly called out rather than silently omitted"
+    diagnostic: "llm"
+    detail: "If contact roles, tasks, or competitor data cannot be retrieved, the LLM must explicitly state what is missing and why (e.g., not exposed via query_model), rather than skipping those sections"
+
+max_turns: 10
