@@ -1579,6 +1579,70 @@ asyncio.run(check())
 
 ---
 
+## Sync Config Lifecycle States
+
+Sync configs have three states that control behavior:
+
+### `is_active` (Enable/Disable Toggle)
+
+| When `is_active` | Scheduled Sync | Manual Sync (UI) | Manual Sync (API) | Data Visibility |
+|-------------------|---------------|------------------|-------------------|-----------------|
+| `true` | Runs on schedule | Buttons visible | Allowed | Searchable |
+| `false` | Skipped | Buttons hidden | **Blocked (409)** | Searchable |
+
+**What disabling does:**
+- Stops scheduled syncs (maintenance handler checks `is_active` + `sync_frequency != 'manual'`)
+- Blocks manual sync triggers via API (returns 409 Conflict)
+- Hides sync buttons in the UI
+- Does NOT remove data from search index
+- Does NOT delete synced records or assets
+
+**Use case:** Temporarily pause syncing without losing data. Re-enable to resume.
+
+### `status` (Config Lifecycle)
+
+| Status | Can Sync? | Data Searchable? | Can Edit? |
+|--------|-----------|-----------------|-----------|
+| `active` | Yes (if `is_active`) | Yes | Yes |
+| `paused` | No | Yes | Yes |
+| `archived` | No | **No — deindexed** | No |
+
+### Archive Behavior
+
+Archiving a sync config follows the SharePoint pattern:
+
+1. **Cancels pending jobs** — extraction/enhancement runs for documents from this config
+2. **Removes documents from search index** — Assets with `source_type='salesforce'` and `source_metadata.source.sync_config_id` matching this config are deindexed
+3. **Removes Salesforce records from search index** — Accounts, contacts, and opportunities with `sync_config_id` FK matching this config have their search_chunks deleted
+4. **Sets config to archived + inactive** — `status='archived'`, `is_active=False`
+
+**What archiving preserves:**
+- Database records (accounts, contacts, opportunities) remain in their tables
+- Assets remain in MinIO storage
+- Junction data (contact roles, competitors, tasks, events) remains in tables
+- Source metadata on records is untouched
+
+**What archiving removes:**
+- Search visibility — records won't appear in search results, CWR queries, or MCP tools
+- Scheduled sync entries
+- Ability to trigger syncs
+
+**Irreversible:** Archived configs cannot be un-archived. Create a new config to resume syncing. A full sync will re-populate all data and re-index.
+
+### Implementation Checklist for New Connectors
+
+When implementing archive for a new connector, ensure:
+
+- [ ] `is_active=False` blocks both scheduled AND manual sync triggers (API returns 409)
+- [ ] Archive deindexes synced documents (Assets) from search_chunks
+- [ ] Archive deindexes synced records from search_chunks
+- [ ] Archive sets `status='archived'` and `is_active=False`
+- [ ] Archive does NOT delete DB records or MinIO objects
+- [ ] Frontend shows archived banner with explanation
+- [ ] Frontend hides sync buttons for archived configs
+
+---
+
 ## Troubleshooting
 
 ### Job stuck in "pending" status
