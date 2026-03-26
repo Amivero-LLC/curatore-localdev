@@ -49,10 +49,9 @@ EBUY_PASSWORD = os.getenv("EBUY_PASSWORD")
 OKTA_AUTH_SERVER_ID = os.getenv("EBUY_OKTA_AUTH_SERVER_ID")
 OKTA_CLIENT_ID = os.getenv("EBUY_OKTA_CLIENT_ID")
 
-# OTP mailbox — may differ from login account.
-# Default: ebuy@amivero.com (shared mailbox where OTPs are forwarded)
-# When service account is set up, EBUY_USERNAME and EBUY_OTP_MAILBOX will match.
-EBUY_OTP_MAILBOX = os.getenv("EBUY_OTP_MAILBOX", "ebuy@amivero.com")
+# OTP mailbox — defaults to EBUY_USERNAME (same account for login and OTP).
+# Override with EBUY_OTP_MAILBOX if OTPs are forwarded to a different mailbox.
+EBUY_OTP_MAILBOX = os.getenv("EBUY_OTP_MAILBOX") or EBUY_USERNAME
 
 STATE_FILE = Path(__file__).parent / ".ebuy_auth_state.json"
 
