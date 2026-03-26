@@ -132,10 +132,13 @@ web_search:
 # GSA eBuy Integration Configuration
 # ============================================================================
 ebuy:
+  enabled: true
   username: "__EBUY_USERNAME__"
   password: "__EBUY_PASSWORD__"
   okta_auth_server_id: "__EBUY_OKTA_AUTH_SERVER_ID__"
   okta_client_id: "__EBUY_OKTA_CLIENT_ID__"
+  timeout: 60
+  max_retries: 3
 
 # ============================================================================
 # Queue Configuration
