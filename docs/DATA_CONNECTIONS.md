@@ -184,6 +184,104 @@ Use this checklist when implementing a new data connection:
 
 ---
 
+## Integration Planning Checklist (50,000-foot view)
+
+Before writing code, work through this checklist to ensure nothing is missed. Each item represents a decision or consideration, not just a file to edit.
+
+### 1. Data Source Understanding
+- [ ] **Authentication model** — OAuth2, API key, service account, certificate? Does it expire/rotate?
+- [ ] **API rate limits** — daily/hourly quotas, concurrent request limits, burst vs sustained rates
+- [ ] **Data volume** — how many records? How large are files? What's the initial vs incremental load?
+- [ ] **API pagination** — offset-based, cursor-based, or link-based? Max page size?
+- [ ] **Change detection** — does the API support delta queries (modified-since, change feeds, webhooks)?
+- [ ] **Deletion detection** — can you detect deleted records? Soft delete vs hard delete?
+- [ ] **Field validation** — have you validated ALL field names against the live environment (not just docs)?
+- [ ] **Data types** — are there type mismatches (API returns int, DB stores string; dates in different formats)?
+- [ ] **Custom fields** — does the org have custom fields you need to discover and map dynamically?
+
+### 2. Data Model Design
+- [ ] **Core tables** — what entities need their own tables vs JSONB storage?
+- [ ] **Junction/child data** — are there many-to-many relationships (contact roles, tags, categories)?
+- [ ] **Storage strategy** — normalized tables (SQL-queryable) vs denormalized JSONB (search/AI-friendly), or hybrid?
+- [ ] **User/owner resolution** — does the source have internal users that need mapping (e.g., record owners)?
+- [ ] **File attachments** — does the source have linked files that need downloading and processing?
+- [ ] **Notes/comments** — are there text blobs that should be indexed for search but not stored as separate assets?
+
+### 3. Sync Strategy
+- [ ] **Full vs delta sync** — how does the first sync differ from subsequent syncs?
+- [ ] **Sync order** — do entities have dependencies (e.g., sync Users before Accounts because of owner FKs)?
+- [ ] **Batch sizing** — how many records per commit? Too few = slow, too many = memory risk
+- [ ] **Dedup strategy** — how do you detect and skip already-synced records? By source ID? By storage key?
+- [ ] **Conflict resolution** — if a record exists in both systems, which wins? (usually: source of truth wins)
+- [ ] **Error isolation** — does one failed record abort the sync or just skip that record?
+- [ ] **Idempotency** — can the sync be re-run safely without creating duplicates?
+
+### 4. Document/File Handling
+- [ ] **Download strategy** — sequential vs concurrent? What concurrency limit?
+- [ ] **Storage paths** — human-readable, browsable paths in MinIO (use `storage_path_service`)
+- [ ] **Dedup** — inventory-based check before download (don't re-download existing files)
+- [ ] **Extraction pipeline** — downloaded files should be queued for extraction/classification (auto via `create_asset`)
+- [ ] **Source context** — classification LLM needs to know where the file came from (account, opportunity, etc.)
+- [ ] **File size limits** — skip oversized files gracefully with logging
+- [ ] **Unsupported formats** — skip known-bad extensions (.snote, .exe, etc.)
+
+### 5. Search & AI Visibility
+- [ ] **Metadata builders** — every field you want searchable needs to be in `build_content()` and `build_metadata()`
+- [ ] **Namespace YAML** — field definitions in `registry/fields/*.yaml` with proper types and facet config
+- [ ] **Ontology mappings** — source fields → ontology coordinate fields (agency, lifecycle_phase, etc.)
+- [ ] **CWR ContentItem** — fields exposed via `get()` function for AI/MCP consumption
+- [ ] **Source metadata merge** — reindex must MERGE metadata (not replace), or junction/child data gets wiped
+- [ ] **Reindex parity** — maintenance handler rebuilds produce the same richness as sync-time indexing
+
+### 6. Job Infrastructure
+- [ ] **Celery queue** — dedicated queue name, routed in `celery_app.py`, consumed by `worker-general`
+- [ ] **Distributed lock** — prevent concurrent syncs for the same config
+- [ ] **Stale lock handling** — what happens if the worker is killed mid-sync? Lock auto-clears?
+- [ ] **Run tracking** — Run record with heartbeats, progress phases, activity log events
+- [ ] **Progress reporting** — current/total phases, per-phase progress, detail messages
+- [ ] **Error reporting** — failed items tracked in `results_summary` with enough detail for admins
+- [ ] **Timeout thresholds** — appropriate stale/timeout values in `RUN_TYPE_THRESHOLDS`
+
+### 7. Sync Config Lifecycle
+- [ ] **Enable/disable** — toggle blocks both scheduled AND manual syncs (API returns 409)
+- [ ] **Archive** — deindexes all synced records from search, preserves DB/MinIO data
+- [ ] **Cascade delete** — permanently removes ALL data (Assets, MinIO files, DB records, junction data, runs)
+- [ ] **Single vs multi-config** — can an org have multiple sync configs? Usually one per org for CRM sources
+- [ ] **Scheduled sync** — maintenance handler checks `is_active` + `sync_frequency` to dispatch
+- [ ] **Results format** — flattened summary for frontend stat cards (not nested JSON)
+
+### 8. Health & Monitoring
+- [ ] **ExternalServiceMonitor** — startup health check, consumer reporting, recovery polling
+- [ ] **Redis heartbeat** — `curatore:heartbeat:{connector}` in DB 2
+- [ ] **Comprehensive health** — `_check_{connector}()` added to system health endpoint
+- [ ] **Non-core classification** — connector unhealthy = system `degraded`, not `unhealthy`
+
+### 9. Frontend
+- [ ] **Sync config management** — list, create, detail/edit, enable/disable, archive, delete pages
+- [ ] **Object browse pages** — list + detail pages for synced entities with sync status indicators
+- [ ] **Job type config** — icon, color, label, phases, toast messages in `job-type-config.ts`
+- [ ] **API client methods** — CRUD + trigger + history methods in `lib/api.ts`
+- [ ] **SyncType registration** — added to shared import/export component types
+- [ ] **Error states** — archived banners, disabled state messaging, empty states, loading skeletons
+
+### 10. Testing & Verification
+- [ ] **Unit tests** — for service methods, field mapping, SOQL construction
+- [ ] **Update existing tests** — field count assertions, mock setups, transform registrations
+- [ ] **Full sync smoke test** — end-to-end in Docker: trigger sync, verify records, verify search
+- [ ] **Delta sync smoke test** — second sync processes 0 unchanged records correctly
+- [ ] **Document dedup test** — re-running sync doesn't re-download existing files
+- [ ] **Error recovery test** — sync recovers gracefully from transient API errors
+- [ ] **Lock contention test** — concurrent sync attempts blocked properly
+
+### 11. Documentation & Issues
+- [ ] **Connection setup guide** — how to configure credentials, create the connection
+- [ ] **SDLC compliance** — GitHub issues created before work, PRs reference issues with `Closes #N`
+- [ ] **Cross-service PRs linked** — backend, frontend, localdev PRs reference each other
+- [ ] **Close completed issues** — reconcile all related issues on merge
+- [ ] **Update DATA_CONNECTIONS.md** — lessons learned, new patterns discovered
+
+---
+
 ## 1. Database Models
 
 ### Location
