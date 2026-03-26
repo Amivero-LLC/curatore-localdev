@@ -207,17 +207,8 @@ def get_okta_otp(
 
     The mailbox to read is determined by (in priority order):
       1. `email` parameter (explicit override)
-      2. EBUY_OTP_MAILBOX env var (the inbox where OTPs arrive)
-      3. EBUY_USERNAME env var (fallback — assumes login email = OTP inbox)
-
-    This separation exists because the Okta login account (EBUY_USERNAME) may
-    differ from the inbox where OTPs are read (EBUY_OTP_MAILBOX). Current setup:
-      - EBUY_USERNAME = <okta_login_email> (Okta login credentials)
-      - EBUY_OTP_MAILBOX = ebuy@amivero.com (shared mailbox, OTPs forwarded here)
-
-    Future (when service account is set up):
-      - EBUY_USERNAME = ebuy@amivero.com (both login AND OTP inbox)
-      - EBUY_OTP_MAILBOX can be removed or left as explicit override
+      2. EBUY_OTP_MAILBOX env var (override if OTPs go to a different mailbox)
+      3. EBUY_USERNAME env var (default — login account = OTP inbox)
 
     Args:
         email: Mailbox to read (overrides env vars)
@@ -229,7 +220,7 @@ def get_okta_otp(
         The 6-digit OTP string, or None if not found
     """
     if not email:
-        email = os.getenv("EBUY_OTP_MAILBOX", "ebuy@amivero.com")
+        email = os.getenv("EBUY_OTP_MAILBOX") or os.getenv("EBUY_USERNAME")
     if not email:
         print("ERROR: No mailbox specified. Set EBUY_OTP_MAILBOX or EBUY_USERNAME in .env")
         return None
@@ -261,15 +252,11 @@ def main():
     print("=" * 60)
 
     otp_mailbox = os.getenv("EBUY_OTP_MAILBOX") or os.getenv("EBUY_USERNAME")
-    login_user = os.getenv("EBUY_USERNAME")
     if not otp_mailbox:
-        print("ERROR: EBUY_OTP_MAILBOX or EBUY_USERNAME must be set in .env")
+        print("ERROR: EBUY_USERNAME must be set in .env")
         sys.exit(1)
 
-    print(f"  Login account (Okta): {login_user}")
-    print(f"  OTP mailbox (Graph):  {otp_mailbox}")
-    if login_user != otp_mailbox:
-        print(f"  NOTE: Different accounts — OTPs must be forwarded to {otp_mailbox}")
+    print(f"  OTP mailbox: {otp_mailbox}")
 
     # For testing, look back at the last 5 minutes
     from datetime import timedelta
