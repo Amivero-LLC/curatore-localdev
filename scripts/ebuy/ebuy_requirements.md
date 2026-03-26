@@ -187,8 +187,8 @@ All responses follow this pattern:
     "user_type": "EBUYVENDOR",
     "sas_code": "00",
     "authorization_code": 0,
-    "email": "dlarrimore@amivero.com",
-    "client_logged_in_i_p_address": "173.79.10.72"
+    "email": "<EBUY_USERNAME>",
+    "client_logged_in_i_p_address": "<client_ip>"
   },
   "rcnt": 0
 }
@@ -389,7 +389,7 @@ datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
-| `EBUY_USERNAME` | `dlarrimore@amivero.com` | Okta login (named account) |
+| `EBUY_USERNAME` | (set in `.env`) | Okta login (named account) |
 | `EBUY_PASSWORD` | (set in `.env`) | Okta password |
 | `EBUY_OKTA_AUTH_SERVER_ID` | (set in `.env`) | GSA Okta auth server |
 | `EBUY_OKTA_CLIENT_ID` | (set in `.env`) | GSA Okta OIDC client |
@@ -401,11 +401,11 @@ The Okta login account and the OTP reading mailbox are **intentionally separate*
 
 ```
 EBUY_USERNAME (Okta login)          EBUY_OTP_MAILBOX (Graph reads here)
-dlarrimore@amivero.com    ──FW──>   ebuy@amivero.com
+${EBUY_USERNAME}           ──FW──>   ${EBUY_OTP_MAILBOX}
      │                                    │
      ├─ Authenticates to Okta             ├─ Shared mailbox (no license)
      ├─ Receives OTP email                ├─ Graph API reads OTP
-     └─ Auto-forwards to ebuy@           └─ Mail.Read scoped to this box
+     └─ Auto-forwards to OTP mailbox     └─ Mail.Read scoped to this box
 ```
 
 **Why separate?**
@@ -421,7 +421,7 @@ dlarrimore@amivero.com    ──FW──>   ebuy@amivero.com
 ### Planned (Production)
 
 - **Shared mailbox**: `ebuy@amivero.com` — created, Graph access verified
-- **Forwarding rule**: Set up on `dlarrimore@amivero.com` to auto-forward OTP emails
+- **Forwarding rule**: Set up on `${EBUY_USERNAME}` to auto-forward OTP emails to `${EBUY_OTP_MAILBOX}`
 - **Open question**: Can `ebuy@amivero.com` be registered as a GSA eBuy/Okta account?
   - If yes: both `EBUY_USERNAME` and `EBUY_OTP_MAILBOX` become `ebuy@amivero.com`
   - If no: keep the split architecture (named account + forwarding)
@@ -548,7 +548,7 @@ scripts/ebuy/
 Root `.env`:
 ```env
 # GSA eBuy Integration (Okta 2FA email auth)
-EBUY_USERNAME=dlarrimore@amivero.com       # Okta login account
+EBUY_USERNAME=<okta_login_email>            # Okta login account
 EBUY_PASSWORD=<password>
 EBUY_OKTA_AUTH_SERVER_ID=<from GSA Okta — do not commit>
 EBUY_OKTA_CLIENT_ID=<from GSA Okta — do not commit>
