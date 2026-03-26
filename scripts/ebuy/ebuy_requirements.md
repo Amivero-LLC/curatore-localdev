@@ -385,20 +385,46 @@ datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
 
 ## Credentials
 
-### Current (Development / Spike)
+### Current (Development)
 
-| Variable | Value | Location |
-|----------|-------|----------|
-| `EBUY_USERNAME` | `dlarrimore@amivero.com` | Root `.env` |
-| `EBUY_PASSWORD` | (set in `.env`) | Root `.env` |
-| `EBUY_OKTA_AUTH_SERVER_ID` | (set in `.env`) | Root `.env` |
-| `EBUY_OKTA_CLIENT_ID` | (set in `.env`) | Root `.env` |
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `EBUY_USERNAME` | `dlarrimore@amivero.com` | Okta login (named account) |
+| `EBUY_PASSWORD` | (set in `.env`) | Okta password |
+| `EBUY_OKTA_AUTH_SERVER_ID` | (set in `.env`) | GSA Okta auth server |
+| `EBUY_OKTA_CLIENT_ID` | (set in `.env`) | GSA Okta OIDC client |
+| `EBUY_OTP_MAILBOX` | `ebuy@amivero.com` | Shared mailbox where OTPs arrive (default) |
+
+### Architecture: Split Login vs OTP Mailbox
+
+The Okta login account and the OTP reading mailbox are **intentionally separate**:
+
+```
+EBUY_USERNAME (Okta login)          EBUY_OTP_MAILBOX (Graph reads here)
+dlarrimore@amivero.com    ──FW──>   ebuy@amivero.com
+     │                                    │
+     ├─ Authenticates to Okta             ├─ Shared mailbox (no license)
+     ├─ Receives OTP email                ├─ Graph API reads OTP
+     └─ Auto-forwards to ebuy@           └─ Mail.Read scoped to this box
+```
+
+**Why separate?**
+- GSA eBuy/Okta may require a **named user account** (not a service account)
+- Shared mailboxes can't authenticate to Okta (no password)
+- Graph API needs a mailbox to read from (Application Access Policy scoped)
+- This design works regardless of whether eBuy allows service accounts
+
+**Forward compatibility:**
+- If `ebuy@amivero.com` gets registered as an eBuy/Okta user: set `EBUY_USERNAME=ebuy@amivero.com`, remove the forwarding rule, `EBUY_OTP_MAILBOX` stays the same
+- If it stays a named account: no changes needed, forwarding continues working
 
 ### Planned (Production)
 
-- **Service account email**: `ebuy@amivero.com` (shared inbox, not distro list)
-- Microsoft Graph API access needed for Curatore to read OTP emails from this inbox
-- Jen Whitlow to create the account once the shared inbox is set up
+- **Shared mailbox**: `ebuy@amivero.com` — created, Graph access verified
+- **Forwarding rule**: Set up on `dlarrimore@amivero.com` to auto-forward OTP emails
+- **Open question**: Can `ebuy@amivero.com` be registered as a GSA eBuy/Okta account?
+  - If yes: both `EBUY_USERNAME` and `EBUY_OTP_MAILBOX` become `ebuy@amivero.com`
+  - If no: keep the split architecture (named account + forwarding)
 - Stephen to configure environment variables in ArgoCD for `curator.dev.amivero-solutions`
 
 ## Automation Strategy for Email OTP
@@ -522,10 +548,11 @@ scripts/ebuy/
 Root `.env`:
 ```env
 # GSA eBuy Integration (Okta 2FA email auth)
-EBUY_USERNAME=dlarrimore@amivero.com
+EBUY_USERNAME=dlarrimore@amivero.com       # Okta login account
 EBUY_PASSWORD=<password>
 EBUY_OKTA_AUTH_SERVER_ID=<from GSA Okta — do not commit>
 EBUY_OKTA_CLIENT_ID=<from GSA Okta — do not commit>
+# EBUY_OTP_MAILBOX=ebuy@amivero.com       # Default — where Graph reads OTPs
 ```
 
 Future backend `config.yml`:

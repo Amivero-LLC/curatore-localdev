@@ -203,10 +203,24 @@ def get_okta_otp(
     poll_interval: float = 3.0,
 ) -> str | None:
     """
-    High-level function: get the Okta OTP code from the user's email.
+    High-level function: get the Okta OTP code from an email inbox.
+
+    The mailbox to read is determined by (in priority order):
+      1. `email` parameter (explicit override)
+      2. EBUY_OTP_MAILBOX env var (the inbox where OTPs arrive)
+      3. EBUY_USERNAME env var (fallback — assumes login email = OTP inbox)
+
+    This separation exists because the Okta login account (EBUY_USERNAME) may
+    differ from the inbox where OTPs are read (EBUY_OTP_MAILBOX). Current setup:
+      - EBUY_USERNAME = dlarrimore@amivero.com (Okta login credentials)
+      - EBUY_OTP_MAILBOX = ebuy@amivero.com (shared mailbox, OTPs forwarded here)
+
+    Future (when service account is set up):
+      - EBUY_USERNAME = ebuy@amivero.com (both login AND OTP inbox)
+      - EBUY_OTP_MAILBOX can be removed or left as explicit override
 
     Args:
-        email: Mailbox to read (defaults to EBUY_USERNAME from .env)
+        email: Mailbox to read (overrides env vars)
         after_timestamp: Only consider emails received after this ISO 8601 time
         max_retries: Number of polling attempts
         poll_interval: Seconds between polls
@@ -215,9 +229,9 @@ def get_okta_otp(
         The 6-digit OTP string, or None if not found
     """
     if not email:
-        email = os.getenv("EBUY_USERNAME")
+        email = os.getenv("EBUY_OTP_MAILBOX", "ebuy@amivero.com")
     if not email:
-        print("ERROR: No email specified and EBUY_USERNAME not set in .env")
+        print("ERROR: No mailbox specified. Set EBUY_OTP_MAILBOX or EBUY_USERNAME in .env")
         return None
 
     if not after_timestamp:
@@ -246,24 +260,30 @@ def main():
     print("Microsoft Graph OTP Reader — Test Mode")
     print("=" * 60)
 
-    email = os.getenv("EBUY_USERNAME")
-    if not email:
-        print("ERROR: EBUY_USERNAME not set in .env")
+    otp_mailbox = os.getenv("EBUY_OTP_MAILBOX") or os.getenv("EBUY_USERNAME")
+    login_user = os.getenv("EBUY_USERNAME")
+    if not otp_mailbox:
+        print("ERROR: EBUY_OTP_MAILBOX or EBUY_USERNAME must be set in .env")
         sys.exit(1)
+
+    print(f"  Login account (Okta): {login_user}")
+    print(f"  OTP mailbox (Graph):  {otp_mailbox}")
+    if login_user != otp_mailbox:
+        print(f"  NOTE: Different accounts — OTPs must be forwarded to {otp_mailbox}")
 
     # For testing, look back at the last 5 minutes
     from datetime import timedelta
     after = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    otp = get_okta_otp(email=email, after_timestamp=after, max_retries=3, poll_interval=2.0)
+    otp = get_okta_otp(email=otp_mailbox, after_timestamp=after, max_retries=3, poll_interval=2.0)
 
     if otp:
         print(f"\nOTP Code: {otp}")
     else:
         print("\nNo OTP found. Make sure:")
-        print("  1. An Okta verification email was sent recently")
+        print("  1. An Okta verification email was sent/forwarded recently")
         print("  2. Graph app has Mail.Read permission for this mailbox")
-        print(f"  3. Mailbox: {email}")
+        print(f"  3. OTP mailbox: {otp_mailbox}")
 
 
 if __name__ == "__main__":
