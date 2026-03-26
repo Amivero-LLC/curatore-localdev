@@ -15,7 +15,7 @@ Usage:
 
   # Used programmatically by ebuy_auth.py
   from ebuy_graph_otp import get_okta_otp
-  otp = get_okta_otp(email="dlarrimore@amivero.com", after_timestamp="2026-03-25T02:00:00Z")
+  otp = get_okta_otp(after_timestamp="2026-03-25T02:00:00Z")  # reads EBUY_OTP_MAILBOX from .env
 """
 
 import os
@@ -212,7 +212,7 @@ def get_okta_otp(
 
     This separation exists because the Okta login account (EBUY_USERNAME) may
     differ from the inbox where OTPs are read (EBUY_OTP_MAILBOX). Current setup:
-      - EBUY_USERNAME = dlarrimore@amivero.com (Okta login credentials)
+      - EBUY_USERNAME = <okta_login_email> (Okta login credentials)
       - EBUY_OTP_MAILBOX = ebuy@amivero.com (shared mailbox, OTPs forwarded here)
 
     Future (when service account is set up):
