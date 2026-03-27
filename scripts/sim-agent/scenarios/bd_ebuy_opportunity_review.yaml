@@ -17,32 +17,32 @@ goal: |
   with RFQ IDs, agencies, schedules, closing dates, and descriptions.
 
 acceptance_criteria:
-  - criterion: "eBuy solicitations are searched"
+  - criterion: "eBuy solicitations searched with source=ebuy"
     diagnostic: "mcp"
-    detail: "search_ebuy_solicitations or search_assets with source_type=ebuy should be called"
+    detail: "search_solicitations should use source='ebuy' parameter"
 
-  - criterion: "Agency filtering is applied"
-    diagnostic: "mcp"
-    detail: "Results should be filtered or grouped by agency"
-
-  - criterion: "Schedule/vehicle information is visible"
+  - criterion: "Results include RFQ IDs and schedule/vehicle"
     diagnostic: "cwr"
-    detail: "Results must show which contract vehicle (MAS, OASIS+SB, etc.)"
+    detail: "Every result must have rfq_id and schedule (MAS, OASIS+SB, etc.)"
 
   - criterion: "Request type (RFQ/RFP) is distinguished"
     diagnostic: "cwr"
-    detail: "Results should show whether each opportunity is an RFQ or RFP"
+    detail: "Results must show request_type field for each solicitation"
 
-  - criterion: "Closing dates are visible"
+  - criterion: "Set-aside type visible for OASIS+ solicitations"
     diagnostic: "cwr"
-    detail: "Results must include response deadlines"
+    detail: "OASIS+SB/8A/WOSB results should show set_aside_type derived from vehicle"
+
+  - criterion: "Agency and closing dates visible"
+    diagnostic: "cwr"
+    detail: "Results must include agency_name and close_date"
 
   - criterion: "Salesforce cross-reference attempted"
     diagnostic: "llm"
     detail: "LLM should search Salesforce to check for existing pipeline entries"
 
-  - criterion: "Actionable summary with RFQ IDs"
+  - criterion: "Actionable summary with capability alignment"
     diagnostic: "llm"
-    detail: "Response includes RFQ IDs, agency names, and recommendation"
+    detail: "Response includes top opportunities with RFQ IDs, agencies, and Amivero fit assessment"
 
 max_turns: 6
