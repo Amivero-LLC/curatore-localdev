@@ -1,0 +1,48 @@
+name: "BD eBuy Opportunity Review"
+persona: "bd_lead"
+description: |
+  Sam reviews recent GSA eBuy solicitations across Amivero's contract vehicles
+  (MAS and OASIS+). He wants to find IT services opportunities from agencies
+  Amivero targets (DHS, VA, HHS, DoD), identify any small business set-aside
+  opportunities, evaluate which ones align with Amivero's core capabilities
+  (IT modernization, cybersecurity, data analytics, cloud), and check if
+  any are already tracked in Salesforce.
+
+goal: |
+  Review recent eBuy solicitations for IT services opportunities that match
+  Amivero's capabilities. Filter by target agencies (DHS, VA, HHS, DoD, GSA).
+  Identify the request types (RFQ vs RFP) and schedules (MAS vs OASIS+).
+  Look for small business set-aside opportunities. Cross-reference with
+  Salesforce pipeline. Summarize the top 5 most promising opportunities
+  with RFQ IDs, agencies, schedules, closing dates, and descriptions.
+
+acceptance_criteria:
+  - criterion: "eBuy solicitations are searched"
+    diagnostic: "mcp"
+    detail: "search_ebuy_solicitations or search_assets with source_type=ebuy should be called"
+
+  - criterion: "Agency filtering is applied"
+    diagnostic: "mcp"
+    detail: "Results should be filtered or grouped by agency"
+
+  - criterion: "Schedule/vehicle information is visible"
+    diagnostic: "cwr"
+    detail: "Results must show which contract vehicle (MAS, OASIS+SB, etc.)"
+
+  - criterion: "Request type (RFQ/RFP) is distinguished"
+    diagnostic: "cwr"
+    detail: "Results should show whether each opportunity is an RFQ or RFP"
+
+  - criterion: "Closing dates are visible"
+    diagnostic: "cwr"
+    detail: "Results must include response deadlines"
+
+  - criterion: "Salesforce cross-reference attempted"
+    diagnostic: "llm"
+    detail: "LLM should search Salesforce to check for existing pipeline entries"
+
+  - criterion: "Actionable summary with RFQ IDs"
+    diagnostic: "llm"
+    detail: "Response includes RFQ IDs, agency names, and recommendation"
+
+max_turns: 6
