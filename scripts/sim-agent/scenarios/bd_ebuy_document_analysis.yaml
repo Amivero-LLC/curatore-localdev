@@ -1,0 +1,38 @@
+name: "BD eBuy Document Analysis"
+persona: "bd_lead"
+description: |
+  Sam reviews downloaded eBuy SOW documents for IT services opportunities
+  that match Amivero's core capabilities (IT modernization, cybersecurity,
+  data analytics, cloud, AI/ML). He wants to read the actual SOW content,
+  evaluate technical requirements, and identify small business set-aside
+  opportunities across DHS, VA, HHS, and DoD.
+
+goal: |
+  Search for eBuy solicitations with downloaded documents (SOWs, RFPs).
+  Read the content of the most promising attachments. Evaluate which
+  opportunities align with Amivero's capabilities. Summarize the top 3
+  opportunities with key requirements from the SOW documents, agency,
+  schedule, and closing dates.
+
+acceptance_criteria:
+  - criterion: "eBuy solicitations searched with source=ebuy"
+    diagnostic: "mcp"
+    detail: "search_solicitations should use source='ebuy' parameter"
+
+  - criterion: "Document content is retrieved"
+    diagnostic: "mcp"
+    detail: "get_content should be called to read attachment text"
+
+  - criterion: "Technical requirements extracted from SOW"
+    diagnostic: "llm"
+    detail: "Response should include specific requirements from the documents"
+
+  - criterion: "Amivero capability alignment assessed"
+    diagnostic: "llm"
+    detail: "Response should evaluate fit against IT modernization, cybersecurity, data analytics, cloud, AI/ML"
+
+  - criterion: "Schedule and closing dates visible"
+    diagnostic: "cwr"
+    detail: "Results must show GSA schedule (MAS, OASIS+) and deadlines"
+
+max_turns: 6

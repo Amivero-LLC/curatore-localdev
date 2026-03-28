@@ -7,6 +7,9 @@ Thumbs.db
 .idea/
 *.swp
 
+# Salesforce
+.sfdx/
+
 # Python
 __pycache__/
 *.pyc
