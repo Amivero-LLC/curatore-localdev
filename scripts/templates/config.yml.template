@@ -59,7 +59,7 @@ extraction:
   enabled: true
   service_url: http://document-service:8010
   api_key: __DOCUMENT_SERVICE_API_KEY__
-  timeout: 240
+  timeout: 300
   verify_ssl: true
 
 # ============================================================================
@@ -177,7 +177,7 @@ queue:
 queues:
   extraction:
     max_concurrent: 12      # Total weight budget (not job count). Default: 10
-    timeout_seconds: 300    # Per-job timeout in seconds
+    timeout_seconds: 900    # Per-job timeout in seconds
 
 # ============================================================================
 # MinIO / S3 Object Storage Configuration
