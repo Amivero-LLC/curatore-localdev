@@ -181,10 +181,11 @@ X-Correlation-ID: <uuid>
 2. **Config split** — `.env` = secrets + Docker infrastructure; `config.yml` = application behavior + external service discovery (including SAM.gov, Microsoft Graph, LLM, extraction, playwright). See [backend CLAUDE.md](curatore-backend/CLAUDE.md)
 3. **Inter-service URLs** — Always use Docker container names (e.g., `http://document-service:8010`), never `localhost`. `localhost:PORT` is for browser/developer access only
 4. **Migration parity** — When adding Alembic migrations that INSERT reference data or create VIEWs, also update `prestart.py` `_create_all_tables()` for fresh install parity
-5. **Four containers, one image** — Backend, worker-documents, worker-general, and beat all run from the same Docker image
-6. **Service auth pattern** — All extracted services use optional `SERVICE_API_KEY`: empty = dev mode, set = validates `Authorization: Bearer <key>`
-7. **Hot reload** — Python services mount `./app:/app/app` + `uvicorn --reload`; frontend mounts `.:/app` + `npm run dev`. No rebuild needed for source changes.
-8. **Push-based health monitoring** — Three patterns, zero inter-service polling. See [Health Monitoring](docs/OVERVIEW.md#health-monitoring) for full details.
+5. **Post-deploy data migrations** — When a schema migration needs follow-up operations that can't run in SQL (LLM calls, Playwright scraping, reindexing), use a flag-gated command in `app/core/commands/` wired into `prestart.py`. The `data_migrations` table tracks which commands have run — they execute once on first boot after deploy, then skip forever. See [backend CLAUDE.md](curatore-backend/CLAUDE.md) for the pattern.
+6. **Four containers, one image** — Backend, worker-documents, worker-general, and beat all run from the same Docker image
+7. **Service auth pattern** — All extracted services use optional `SERVICE_API_KEY`: empty = dev mode, set = validates `Authorization: Bearer <key>`
+8. **Hot reload** — Python services mount `./app:/app/app` + `uvicorn --reload`; frontend mounts `.:/app` + `npm run dev`. No rebuild needed for source changes.
+9. **Push-based health monitoring** — Three patterns, zero inter-service polling. See [Health Monitoring](docs/OVERVIEW.md#health-monitoring) for full details.
    - **Core infrastructure** (backend, database, redis, storage, workers, beat): backend/worker processes write their own heartbeats every 30s.
    - **Extracted services** (document-service, playwright, mcp): each service self-registers via `app/services/heartbeat_writer.py` every 30s. The backend does **not** poll them.
    - **External APIs** (LLM, SharePoint): event-driven via `ExternalServiceMonitor` — check on startup, consumers report errors/success, recovery poll only when unhealthy.
