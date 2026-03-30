@@ -33,4 +33,16 @@ acceptance_criteria:
     diagnostic: "system_prompt"
     detail: "Response format should be actionable, not just a data dump"
 
+  - criterion: "Solicitation metadata is complete across sources"
+    diagnostic: "data_quality"
+    detail: "SAM results must have agency, solicitation_number, source_url, and type"
+
+  - criterion: "Salesforce records have pipeline stage and close date"
+    diagnostic: "data_quality"
+    detail: "Salesforce opportunity results must have stage_name and close_date populated"
+
+  - criterion: "Ontology namespace is populated for cross-referenced results"
+    diagnostic: "data_quality"
+    detail: "Results from all sources must have ontology fields for proper classification"
+
 max_turns: 6
