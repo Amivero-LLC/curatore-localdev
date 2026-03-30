@@ -52,6 +52,7 @@ async def run_scenario(
 
     turns = []
     conversation = []  # full message history for narrator context
+    all_tool_calls = []  # accumulated for data_quality verification
     total_start = time.time()
 
     for turn_num in range(1, max_turns + 1):
@@ -89,6 +90,9 @@ async def run_scenario(
             assistant_content = f"[ERROR: {e}]"
             usage = None
             tool_calls = None
+
+        if tool_calls:
+            all_tool_calls.extend(tool_calls)
 
         turn_duration = time.time() - turn_start
         conversation.append({"role": "assistant", "content": assistant_content})
@@ -132,7 +136,9 @@ async def run_scenario(
     if verifier and not dry_run:
         if verbose:
             _print_verification_header()
-        verification_results = await verifier.verify_conversation(conversation)
+        verification_results = await verifier.verify_conversation(
+            conversation, tool_calls=all_tool_calls,
+        )
         if verbose:
             _print_verification_results(verification_results)
 

@@ -29,4 +29,8 @@ acceptance_criteria:
     diagnostic: "cwr"
     detail: "Forecast records should include estimated solicitation dates"
 
+  - criterion: "Forecast metadata fields are complete"
+    diagnostic: "data_quality"
+    detail: "Every forecast must have agency_name, naics_codes, fiscal_year, estimated_award_quarter, source_url"
+
 max_turns: 5

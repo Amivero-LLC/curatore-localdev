@@ -34,4 +34,16 @@ acceptance_criteria:
     diagnostic: "mcp"
     detail: "Response must contain actionable identifiers, not just titles"
 
+  - criterion: "SAM solicitation metadata is complete"
+    diagnostic: "data_quality"
+    detail: "Every result must have agency, solicitation_number, source_url, and type"
+
+  - criterion: "Ontology classification is populated for SAM results"
+    diagnostic: "data_quality"
+    detail: "Results must have ontology.class, ontology.domain, ontology.agency"
+
+  - criterion: "Date filter is respected in returned results"
+    diagnostic: "data_quality"
+    detail: "All results should have posted_date within the requested time window"
+
 max_turns: 6

@@ -19,9 +19,9 @@ acceptance_criteria:
     diagnostic: "mcp"
     detail: "search_solicitations should use source='ebuy' parameter"
 
-  - criterion: "Document content is retrieved"
+  - criterion: "Document content is retrieved via chunk search"
     diagnostic: "mcp"
-    detail: "get_content should be called to read attachment text"
+    detail: "search_document_content should be called with record_id to retrieve relevant passages from SOW attachments (preferred over get_content for large documents)"
 
   - criterion: "Technical requirements extracted from SOW"
     diagnostic: "llm"
@@ -34,5 +34,17 @@ acceptance_criteria:
   - criterion: "Schedule and closing dates visible"
     diagnostic: "cwr"
     detail: "Results must show GSA schedule (MAS, OASIS+) and deadlines"
+
+  - criterion: "Solicitation metadata fields are complete"
+    diagnostic: "data_quality"
+    detail: "Every result must have agency, solicitation_number, source_url, and type"
+
+  - criterion: "Ontology namespace is populated for eBuy results"
+    diagnostic: "data_quality"
+    detail: "Results must have ontology.class, ontology.domain, ontology.agency"
+
+  - criterion: "Closed solicitations do not show status=active"
+    diagnostic: "data_quality"
+    detail: "Solicitations past close_date should not show status=active"
 
 max_turns: 6

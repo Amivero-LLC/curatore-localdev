@@ -30,4 +30,12 @@ acceptance_criteria:
     diagnostic: "llm"
     detail: "LLM should match past performance by agency, scope, and technical area"
 
+  - criterion: "Document metadata includes content_type classification"
+    diagnostic: "data_quality"
+    detail: "Asset results must have content_type populated"
+
+  - criterion: "Ontology classification is populated for document results"
+    diagnostic: "data_quality"
+    detail: "Assets must have ontology.class and ontology.domain"
+
 max_turns: 6
