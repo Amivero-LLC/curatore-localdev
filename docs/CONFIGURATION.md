@@ -856,8 +856,74 @@ For questions or issues:
 4. **GitHub Issues**: Report bugs or request features
 5. **Development Guide**: See CLAUDE.md for developer documentation
 
+## Platform Settings (System & Organization)
+
+In addition to `.env` (infrastructure) and `config.yml` (application behavior), Curatore supports **runtime key/value settings** at two scopes:
+
+### System Settings
+
+Platform-wide settings stored on the `__system__` organization. Managed by system admins via the frontend (System Settings page) or API. Readable by all CWR procedures via `{{ settings.system.* }}` template variables or the `get_settings` tool.
+
+Common system settings: `company_name`, `capabilities`, `certifications`, `contract_vehicles`, `naics_codes`, `target_agencies`, `primary_customers`, `past_performance_domains`, `growth_focus`.
+
+**API:**
+```
+GET  /api/v1/admin/organizations/system/settings
+PUT  /api/v1/admin/organizations/system/settings   (deep-merge, admin only)
+```
+
+**Frontend:** System Settings > System tab
+
+### Organization Settings
+
+Per-org key/value settings managed by org admins. Each org has its own settings stored in `Organization.settings` JSONB. Readable by CWR procedures via `{{ settings.org.* }}` template variables.
+
+Common org settings: `report_recipients`, `qualification_prompt`, `auto_evaluate`, `target_naics`.
+
+**API:**
+```
+GET  /api/v1/admin/organizations/me/settings
+PUT  /api/v1/admin/organizations/me/settings        (deep-merge, admin only)
+```
+
+**Frontend:** Org Settings > Org Settings tab, or System Settings > Organization tab
+
+### Using Settings in CWR Procedures
+
+Settings are available as Jinja2 template variables in all procedure steps:
+
+```json
+{
+  "name": "evaluate",
+  "function": "llm_generate",
+  "params": {
+    "system_prompt": "You evaluate opportunities for {{ settings.system.company_name }}.\nCapabilities: {{ settings.system.capabilities | to_json }}",
+    "prompt": "Evaluate this against our focus: {{ settings.system.growth_focus }}"
+  }
+}
+```
+
+Or via the `get_settings` CWR tool for programmatic access:
+
+```json
+{"name": "load", "tool": "get_settings", "args": {"scope": "system", "keys": ["capabilities"]}}
+```
+
+### Value Types
+
+Settings support any JSON-serializable value: strings, numbers, booleans, arrays, and objects. Arrays render as tag chips in the frontend; long strings render as expandable textareas. The frontend supports export/import of settings as JSON files.
+
+### Settings vs config.yml vs .env
+
+| Setting Type | Stored In | Changed By | Restart Required | Example |
+|-------------|-----------|-----------|:---:|---------|
+| Infrastructure secrets | `.env` | Developer | Yes | `ADMIN_PASSWORD`, `SAM_API_KEY` |
+| Application behavior | `config.yml` | Developer | Yes | LLM models, search tuning |
+| System settings | `__system__` org DB | Admin (frontend/API) | No | Company capabilities, certifications |
+| Org settings | Org DB | Org admin (frontend/API) | No | Report recipients, evaluation prompts |
+
 ---
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-03-31
 
 **Version**: Curatore v2.1.0
