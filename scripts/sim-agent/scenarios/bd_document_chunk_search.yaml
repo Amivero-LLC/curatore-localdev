@@ -1,0 +1,37 @@
+name: "BD Document Chunk Search"
+persona: "bd_lead"
+description: |
+  Sam has an eBuy solicitation and wants to understand the technical
+  requirements in the attached SOW without reading the entire document.
+  He uses search_document_content to retrieve only the relevant passages,
+  keeping token usage manageable for large multi-page SOWs.
+
+goal: |
+  Find an eBuy solicitation with downloaded documents. Use
+  search_document_content with the solicitation's record_id and a
+  targeted query (e.g., "requirements", "certifications", "period of
+  performance") to retrieve relevant passages. Summarize the key
+  requirements from the returned chunks.
+
+acceptance_criteria:
+  - criterion: "eBuy solicitations searched first"
+    diagnostic: "mcp"
+    detail: "search_solicitations should be called with source='ebuy' to find a solicitation with attachments"
+
+  - criterion: "search_document_content called with record_id"
+    diagnostic: "mcp"
+    detail: "search_document_content must be called with record_id parameter (not asset_ids), demonstrating record-centric document lookup"
+
+  - criterion: "No get_content calls with full text dump"
+    diagnostic: "mcp"
+    detail: "get_content should NOT be called — search_document_content is the preferred tool for document analysis"
+
+  - criterion: "Requirements extracted from SOW passages"
+    diagnostic: "llm"
+    detail: "Response should include specific requirements from the returned chunk passages, not generic summaries"
+
+  - criterion: "Token-efficient retrieval"
+    diagnostic: "cwr"
+    detail: "Total prompt tokens should be significantly lower than a full get_content call (~50K vs 200K+)"
+
+max_turns: 6
