@@ -24,6 +24,7 @@ These are the most commonly missed steps that cause integrations to fail:
 | **12. Use storage_path_service for MinIO keys** | `storage_path_service.py` | Files stored with opaque IDs instead of browsable paths |
 | **13. Update maintenance handler reindex** | `maintenance_handlers.py` | Full rebuilds produce less rich metadata than sync |
 | **14. Add SyncType to frontend** | `lib/api.ts` SyncType + SyncConfigCollection | Import/export buttons fail with TypeScript errors |
+| **15. Add integrity check for new source** | `maintenance_handlers.py` | Data pipeline issues go undetected; no auto-remediation |
 
 **After making changes, always verify with:**
 ```bash
@@ -176,10 +177,19 @@ Use this checklist when implementing a new data connection:
 - [ ] Update search page help text to mention new source
 - [ ] Search result card component (if custom display needed)
 
+### Backend - Integrity Check
+- [ ] Add `_integrity_check_{name}()` function in `backend/app/core/ops/maintenance_handlers.py` covering the source's pipeline
+- [ ] Add `source_type_filter="{name}"` call to `_integrity_check_asset_pipeline()` if the source creates assets
+- [ ] Add `"{name}"` to default `data_sources` list in the `integrity.check` handler config
+- [ ] Wire the new check into `handle_integrity_check()` main dispatcher
+- [ ] Update frontend `ALL_DATA_SOURCES` in `app/system/maintenance/page.tsx`
+- [ ] If the source has attachments: use `_integrity_check_attachment_pipeline()` with source's download task
+
 ### Testing & Verification
 - [ ] API endpoint tests in `backend/tests/`
 - [ ] Import service tests
 - [ ] Search indexing verification script
+- [ ] Integrity check smoke test: run with `data_sources: ["{name}"]` and verify detection + remediation
 - [ ] Manual verification checklist completed
 
 ---
