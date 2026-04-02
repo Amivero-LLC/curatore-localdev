@@ -189,6 +189,7 @@ X-Correlation-ID: <uuid>
    - **Core infrastructure** (backend, database, redis, storage, workers, beat): backend/worker processes write their own heartbeats every 30s.
    - **Extracted services** (document-service, playwright, mcp): each service self-registers via `app/services/heartbeat_writer.py` every 30s. The backend does **not** poll them.
    - **External APIs** (LLM, SharePoint): event-driven via `ExternalServiceMonitor` — check on startup, consumers report errors/success, recovery poll only when unhealthy.
+   - **Data integrity** — `integrity.check` maintenance handler audits and auto-corrects pipeline completeness per data source (SAM → attachments → assets → MinIO → extraction → classification → indexing). New data connections must add source-specific integrity checks — see [Maintenance Tasks](curatore-backend/docs/MAINTENANCE_TASKS.md) and [Data Connections Guide](docs/DATA_CONNECTIONS.md).
 
 ## Cross-Service Anti-Patterns
 
