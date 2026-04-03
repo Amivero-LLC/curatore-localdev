@@ -636,6 +636,7 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | [Platform Overview](docs/OVERVIEW.md) | Architecture, data flow, auth flows (Mermaid) |
 | [Documentation Index](docs/INDEX.md) | Master map of all docs across all repos |
 | [Configuration](docs/CONFIGURATION.md) | .env vs config.yml philosophy |
+| [OAuth SSO](docs/OAUTH_SSO.md) | Microsoft Entra ID SSO setup, role mapping, group-to-org sync |
 | [Document Processing](docs/DOCUMENT_PROCESSING.md) | Upload → extraction → indexing pipeline |
 | [Extraction Engines](docs/EXTRACTION_SERVICES.md) | Triage, engine comparison |
 | [Embedding Models & pgvector](docs/EMBEDDING_MODELS.md) | Supported models, dimension auto-resolution, switching models |

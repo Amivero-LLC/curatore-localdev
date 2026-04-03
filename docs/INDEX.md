@@ -8,6 +8,7 @@ Master map of all documentation across Curatore repositories.
 |----------|-------------|
 | [Platform Overview](OVERVIEW.md) | Service architecture, data flow, auth flows, CWR execution (Mermaid diagrams) |
 | [Configuration](CONFIGURATION.md) | .env vs config.yml, config philosophy, service breakout pattern |
+| [OAuth SSO](OAUTH_SSO.md) | Microsoft Entra ID SSO setup, role mapping, group-to-org sync, troubleshooting |
 | [Document Processing](DOCUMENT_PROCESSING.md) | Upload → extraction → indexing pipeline |
 | [Extraction Engines](EXTRACTION_SERVICES.md) | Triage, engine comparison, supported formats |
 | [Data Connections](DATA_CONNECTIONS.md) | Adding new integrations (full checklist) |
