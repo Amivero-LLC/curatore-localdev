@@ -657,6 +657,27 @@ Cross-cutting docs live in [`docs/`](docs/INDEX.md). Service-specific docs stay 
 | SAM.gov pages show "configuration required" | Set `SAM_API_KEY` in root `.env`, run `./scripts/generate-env.sh`, restart services. Verify `config.yml` has `sam: enabled: true` |
 | Slow frontend hot reload (macOS) | In Docker Desktop Settings > General, ensure "VirtioFS" is selected as file sharing implementation |
 
+## Documentation System
+
+Curatore includes a built-in documentation system served from markdown files in the frontend repo.
+
+### Content Location
+- All docs live in `curatore-frontend/content/docs/` as markdown files with YAML frontmatter
+- Categories defined in `content/docs/_meta.json`
+- Images in `content/docs/images/`
+
+### Writing Documentation
+- Use `/write-doc` skill to create new articles following the standard template
+- Frontmatter fields: title, description, category, audience, status, order, tags, lastUpdated, prerequisites, related
+- Follow markdown conventions: callouts via `> **Note:**`, `> **Warning:**`, `> **Tip:**`, `> **Important:**`
+- Set `audience: "admin"` for dev/ops docs, `audience: "all"` for user-facing
+
+### Documentation Workflow (PRs & Releases)
+- **Feature PRs**: If a PR adds user-facing functionality, include a docs update in the same PR or a companion docs PR
+- **Bug fix PRs**: Update troubleshooting docs if the bug was user-impacting
+- **Release tags**: Review and update `lastUpdated` on affected articles
+- **Breaking changes**: Update relevant docs BEFORE merging the breaking change PR
+
 ## Clean Reinstall
 
 ```bash
