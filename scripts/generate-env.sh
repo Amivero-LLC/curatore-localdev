@@ -42,6 +42,12 @@ env_get() {
 warn() { echo "  WARNING: $*" >&2; }
 info() { echo "  $*"; }
 
+# Escape special characters for use in sed replacement strings.
+# Handles: & (back-reference), | (our delimiter), \ (escape char)
+sed_escape() {
+  printf '%s' "$1" | sed -e 's/[&|\]/\\&/g'
+}
+
 # --------------------------------------------------------------------------
 # Validate root .env exists
 # --------------------------------------------------------------------------
@@ -360,44 +366,44 @@ esac
 # We use | as delimiter to avoid conflicts with URLs containing /
 # First pass: sed for simple single-line substitutions
 sed \
-  -e "s|__OPENAI_API_KEY__|${OPENAI_API_KEY}|g" \
-  -e "s|__OPENAI_BASE_URL__|${OPENAI_BASE_URL}|g" \
-  -e "s|__OPENAI_MODEL__|${OPENAI_MODEL}|g" \
-  -e "s|__LLM_EMBEDDING_MODEL__|${LLM_EMBEDDING_MODEL}|g" \
-  -e "s|__LLM_EMBEDDING_DIMENSIONS__|${LLM_EMBEDDING_DIMENSIONS}|g" \
-  -e "s|__LLM_QUICK_MODEL__|${LLM_QUICK_MODEL}|g" \
-  -e "s|__LLM_QUICK_TEMPERATURE__|${LLM_QUICK_TEMPERATURE}|g" \
-  -e "s|__LLM_STANDARD_MODEL__|${LLM_STANDARD_MODEL}|g" \
-  -e "s|__LLM_STANDARD_TEMPERATURE__|${LLM_STANDARD_TEMPERATURE}|g" \
-  -e "s|__LLM_QUALITY_MODEL__|${LLM_QUALITY_MODEL}|g" \
-  -e "s|__LLM_QUALITY_TEMPERATURE__|${LLM_QUALITY_TEMPERATURE}|g" \
-  -e "s|__LLM_BULK_MODEL__|${LLM_BULK_MODEL}|g" \
-  -e "s|__LLM_BULK_TEMPERATURE__|${LLM_BULK_TEMPERATURE}|g" \
-  -e "s|__LLM_REASONING_MODEL__|${LLM_REASONING_MODEL}|g" \
-  -e "s|__LLM_REASONING_TEMPERATURE__|${LLM_REASONING_TEMPERATURE}|g" \
-  -e "s|__DOCUMENT_SERVICE_API_KEY__|${DOCUMENT_SERVICE_API_KEY}|g" \
-  -e "s|__PLAYWRIGHT_API_KEY__|${PLAYWRIGHT_API_KEY}|g" \
-  -e "s|__MINIO_ACCESS_KEY__|${MINIO_ROOT_USER}|g" \
-  -e "s|__MINIO_SECRET_KEY__|${MINIO_ROOT_PASSWORD}|g" \
-  -e "s|__MS_GRAPH_ENABLED__|${MS_GRAPH_ENABLED}|g" \
-  -e "s|__MS_TENANT_ID__|${MS_TENANT_ID}|g" \
-  -e "s|__MS_CLIENT_ID__|${MS_CLIENT_ID}|g" \
-  -e "s|__MS_CLIENT_SECRET__|${MS_CLIENT_SECRET}|g" \
-  -e "s|__SAM_ENABLED__|${SAM_ENABLED}|g" \
-  -e "s|__SAM_API_KEY__|${SAM_API_KEY}|g" \
-  -e "s|__SALESFORCE_DOMAIN__|${SALESFORCE_DOMAIN}|g" \
-  -e "s|__SALESFORCE_CONSUMER_KEY__|${SALESFORCE_CONSUMER_KEY}|g" \
-  -e "s|__SALESFORCE_CONSUMER_SECRET__|${SALESFORCE_CONSUMER_SECRET}|g" \
-  -e "s|__WEB_SEARCH_ENGINE__|${WEB_SEARCH_ENGINE}|g" \
-  -e "s|__GOOGLE_PSE_API_KEY__|${GOOGLE_PSE_API_KEY}|g" \
-  -e "s|__GOOGLE_PSE_ENGINE_ID__|${GOOGLE_PSE_ENGINE_ID}|g" \
-  -e "s|__EBUY_USERNAME__|${EBUY_USERNAME}|g" \
-  -e "s|__EBUY_PASSWORD__|${EBUY_PASSWORD}|g" \
-  -e "s|__EBUY_OKTA_AUTH_SERVER_ID__|${EBUY_OKTA_AUTH_SERVER_ID}|g" \
-  -e "s|__EBUY_OKTA_CLIENT_ID__|${EBUY_OKTA_CLIENT_ID}|g" \
-  -e "s|__EMAIL_BACKEND__|${EMAIL_BACKEND:-console}|g" \
-  -e "s|__EMAIL_FROM_ADDRESS__|${EMAIL_FROM_ADDRESS}|g" \
-  -e "s|__EMAIL_FROM_NAME__|${EMAIL_FROM_NAME}|g" \
+  -e "s|__OPENAI_API_KEY__|$(sed_escape "${OPENAI_API_KEY}")|g" \
+  -e "s|__OPENAI_BASE_URL__|$(sed_escape "${OPENAI_BASE_URL}")|g" \
+  -e "s|__OPENAI_MODEL__|$(sed_escape "${OPENAI_MODEL}")|g" \
+  -e "s|__LLM_EMBEDDING_MODEL__|$(sed_escape "${LLM_EMBEDDING_MODEL}")|g" \
+  -e "s|__LLM_EMBEDDING_DIMENSIONS__|$(sed_escape "${LLM_EMBEDDING_DIMENSIONS}")|g" \
+  -e "s|__LLM_QUICK_MODEL__|$(sed_escape "${LLM_QUICK_MODEL}")|g" \
+  -e "s|__LLM_QUICK_TEMPERATURE__|$(sed_escape "${LLM_QUICK_TEMPERATURE}")|g" \
+  -e "s|__LLM_STANDARD_MODEL__|$(sed_escape "${LLM_STANDARD_MODEL}")|g" \
+  -e "s|__LLM_STANDARD_TEMPERATURE__|$(sed_escape "${LLM_STANDARD_TEMPERATURE}")|g" \
+  -e "s|__LLM_QUALITY_MODEL__|$(sed_escape "${LLM_QUALITY_MODEL}")|g" \
+  -e "s|__LLM_QUALITY_TEMPERATURE__|$(sed_escape "${LLM_QUALITY_TEMPERATURE}")|g" \
+  -e "s|__LLM_BULK_MODEL__|$(sed_escape "${LLM_BULK_MODEL}")|g" \
+  -e "s|__LLM_BULK_TEMPERATURE__|$(sed_escape "${LLM_BULK_TEMPERATURE}")|g" \
+  -e "s|__LLM_REASONING_MODEL__|$(sed_escape "${LLM_REASONING_MODEL}")|g" \
+  -e "s|__LLM_REASONING_TEMPERATURE__|$(sed_escape "${LLM_REASONING_TEMPERATURE}")|g" \
+  -e "s|__DOCUMENT_SERVICE_API_KEY__|$(sed_escape "${DOCUMENT_SERVICE_API_KEY}")|g" \
+  -e "s|__PLAYWRIGHT_API_KEY__|$(sed_escape "${PLAYWRIGHT_API_KEY}")|g" \
+  -e "s|__MINIO_ACCESS_KEY__|$(sed_escape "${MINIO_ROOT_USER}")|g" \
+  -e "s|__MINIO_SECRET_KEY__|$(sed_escape "${MINIO_ROOT_PASSWORD}")|g" \
+  -e "s|__MS_GRAPH_ENABLED__|$(sed_escape "${MS_GRAPH_ENABLED}")|g" \
+  -e "s|__MS_TENANT_ID__|$(sed_escape "${MS_TENANT_ID}")|g" \
+  -e "s|__MS_CLIENT_ID__|$(sed_escape "${MS_CLIENT_ID}")|g" \
+  -e "s|__MS_CLIENT_SECRET__|$(sed_escape "${MS_CLIENT_SECRET}")|g" \
+  -e "s|__SAM_ENABLED__|$(sed_escape "${SAM_ENABLED}")|g" \
+  -e "s|__SAM_API_KEY__|$(sed_escape "${SAM_API_KEY}")|g" \
+  -e "s|__SALESFORCE_DOMAIN__|$(sed_escape "${SALESFORCE_DOMAIN}")|g" \
+  -e "s|__SALESFORCE_CONSUMER_KEY__|$(sed_escape "${SALESFORCE_CONSUMER_KEY}")|g" \
+  -e "s|__SALESFORCE_CONSUMER_SECRET__|$(sed_escape "${SALESFORCE_CONSUMER_SECRET}")|g" \
+  -e "s|__WEB_SEARCH_ENGINE__|$(sed_escape "${WEB_SEARCH_ENGINE}")|g" \
+  -e "s|__GOOGLE_PSE_API_KEY__|$(sed_escape "${GOOGLE_PSE_API_KEY}")|g" \
+  -e "s|__GOOGLE_PSE_ENGINE_ID__|$(sed_escape "${GOOGLE_PSE_ENGINE_ID}")|g" \
+  -e "s|__EBUY_USERNAME__|$(sed_escape "${EBUY_USERNAME}")|g" \
+  -e "s|__EBUY_PASSWORD__|$(sed_escape "${EBUY_PASSWORD}")|g" \
+  -e "s|__EBUY_OKTA_AUTH_SERVER_ID__|$(sed_escape "${EBUY_OKTA_AUTH_SERVER_ID}")|g" \
+  -e "s|__EBUY_OKTA_CLIENT_ID__|$(sed_escape "${EBUY_OKTA_CLIENT_ID}")|g" \
+  -e "s|__EMAIL_BACKEND__|$(sed_escape "${EMAIL_BACKEND:-console}")|g" \
+  -e "s|__EMAIL_FROM_ADDRESS__|$(sed_escape "${EMAIL_FROM_ADDRESS}")|g" \
+  -e "s|__EMAIL_FROM_NAME__|$(sed_escape "${EMAIL_FROM_NAME}")|g" \
   "${TEMPLATE}" > "${ROOT}/curatore-backend/config.yml.tmp"
 
 # Second pass: replace multi-line __EMAIL_BACKEND_CONFIG__ placeholder
